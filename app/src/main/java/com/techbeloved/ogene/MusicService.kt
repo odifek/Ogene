@@ -43,7 +43,7 @@ class MusicService : MediaBrowserServiceCompat(), MediaPlayback.Callback {
         mediaButtonIntent.setClass(this@MusicService, MediaButtonReceiver::class.java)
         val pendingIntent = PendingIntent.getBroadcast(this@MusicService, 0, mediaButtonIntent, 0)
 
-        mediaSession = MediaSessionCompat(baseContext, TAG, mediaButtonReceiver, pendingIntent).apply {
+        mediaSession = MediaSessionCompat(this, TAG, mediaButtonReceiver, pendingIntent).apply {
 
             // Enable callbacks from MediaButtons and TransportControls
             setFlags(
@@ -167,6 +167,7 @@ class MusicService : MediaBrowserServiceCompat(), MediaPlayback.Callback {
                     }
                     AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
                         player.duck()
+                        shouldPlayOnFocusGain = true
                     }
                     AudioManager.AUDIOFOCUS_GAIN -> {
                         if (!player.isPlaying() && shouldPlayOnFocusGain) {
@@ -288,103 +289,6 @@ class MusicService : MediaBrowserServiceCompat(), MediaPlayback.Callback {
 
     }
 
-
-}
-
-interface MediaPlayback {
-    fun start()
-    fun stop()
-    fun pause()
-    fun isPlaying(): Boolean
-    fun onPlayFromMediaId(mediaId: String)
-    fun duck()
-
-    interface Callback {
-        fun onPlaybackCompleted()
-    }
-}
-
-class MediaPlayerAdapter(
-    private val context: Context,
-    val sessionCallback: MediaPlayback.Callback
-) : MediaPlayback {
-
-    private var player: MediaPlayer? = null
-
-    private fun initMediaPlayer() {
-        player = player ?: MediaPlayer()
-
-        // TODO: set on completion listener, buffering listener
-        player?.setOnCompletionListener { mp -> sessionCallback.onPlaybackCompleted() }
-    }
-
-    override fun onPlayFromMediaId(mediaId: String) {
-        try {
-            val assetFileDescriptor: AssetFileDescriptor =
-                context.resources.openRawResourceFd(mediaId.toInt()) ?: return
-
-            try {
-                initMediaPlayer()
-                player?.setDataSource(
-                    assetFileDescriptor.fileDescriptor,
-                    assetFileDescriptor.startOffset,
-                    assetFileDescriptor.length
-                )
-            } catch (e: IllegalStateException) {
-                player?.release()
-            }
-
-            assetFileDescriptor.close()
-            initMediaSessionMetaData()
-        } catch (e: IOException) {
-            return
-        }
-
-        try {
-            player?.setOnPreparedListener { start() }
-            player?.prepareAsync()
-        } catch (e: IOException) {
-            Log.e("Player", "Error preparing resource for playback", e)
-        }
-    }
-
-    override fun start() {
-        if (player != null && !isPlaying()) {
-            player?.setVolume(1.0f, 1.0f)
-            player?.start()
-            updatePlayerState(PlaybackStateCompat.STATE_PLAYING)
-        }
-    }
-
-    override fun stop() {
-        if (player != null && isPlaying()) {
-            player?.stop()
-            updatePlayerState(PlaybackStateCompat.STATE_STOPPED)
-        }
-    }
-
-    override fun pause() {
-        if (player != null && isPlaying()) {
-            player?.pause()
-            updatePlayerState(PlaybackStateCompat.STATE_PAUSED)
-        }
-    }
-
-    override fun isPlaying(): Boolean {
-        return player?.isPlaying ?: false
-    }
-
-    override fun duck() {
-        player?.setVolume(0.3f, 0.3f)
-    }
-
-    private fun initMediaSessionMetaData() {
-
-    }
-
-    private fun updatePlayerState(state: Int) {
-
-    }
 
 }
 
