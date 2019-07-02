@@ -21,7 +21,9 @@ class MediaSessionConnection @Inject constructor (
 
     private val mediaBrowserConnectionCallback = MediaBrowserConnectionCallback(context)
     private val mediaBrowser = MediaBrowserCompat(context, serviceComponent,
-        mediaBrowserConnectionCallback, null)
+        mediaBrowserConnectionCallback, null).apply {
+        connect()
+    }
 
     private inner class MediaBrowserConnectionCallback(private val context: Context) :
         MediaBrowserCompat.ConnectionCallback() {

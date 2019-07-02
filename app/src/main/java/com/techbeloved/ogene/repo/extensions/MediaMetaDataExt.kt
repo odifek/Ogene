@@ -104,7 +104,7 @@ inline val MediaMetadataCompat.downloadStatus
 // These do not have getters, so create a message for the error.
 const val NO_GET = "Property does not have a 'get'"
 
-inline var MediaMetadataCompat.Builder.id: String
+inline var MediaMetadataCompat.Builder.mediaId: String
     @Deprecated(NO_GET, level = DeprecationLevel.ERROR)
     get() = throw IllegalAccessException("Cannot get from MediaMetadataCompat.Builder")
     set(value) {
@@ -179,6 +179,13 @@ inline var MediaMetadataCompat.Builder.trackCount: Long
     get() = throw IllegalAccessException("Cannot get from MediaMetadataCompat.Builder")
     set(value) {
         putLong(MediaMetadataCompat.METADATA_KEY_NUM_TRACKS, value)
+    }
+
+inline var MediaMetadataCompat.Builder.dateAdded: Long
+    @Deprecated(NO_GET, level = DeprecationLevel.ERROR)
+    get() = throw IllegalAccessException("Cannot get from MediaMetadataCompat.Builder")
+    set(value) {
+        putLong(MediaMetadataCompat.METADATA_KEY_DATE, value)
     }
 
 inline var MediaMetadataCompat.Builder.displayTitle: String?

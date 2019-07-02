@@ -3,7 +3,7 @@ package com.techbeloved.ogene.musicbrowser.models
 interface MediaItemModel {
 
     /**
-     * Unique id of the media item, which could be, for a local song, the MediaStore id
+     * Unique mediaId of the media item, which could be, for a local song, the MediaStore mediaId
      */
     val id: Long?
 
@@ -14,7 +14,7 @@ interface MediaItemModel {
     val description: String?
 
     /**
-     * Could represent the browsing media id which looks like a uri
+     * Could represent the browsing media mediaId which looks like a uri
      * Example: content://com.techbeloved.ogene/albums/{albumId}/songs/{songId}
      */
     val mediaId: String?

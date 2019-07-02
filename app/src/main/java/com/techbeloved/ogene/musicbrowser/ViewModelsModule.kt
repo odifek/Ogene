@@ -49,7 +49,7 @@ interface ViewModelModule {
     @Binds
     @IntoMap
     @ViewModelKey(MusicBrowserViewModel::class)
-    fun bindSheetMusicDetailViewModel(viewModel: MusicBrowserViewModel): ViewModel
+    fun bindMusicBrowserViewModel(viewModel: MusicBrowserViewModel): ViewModel
 
 
 }

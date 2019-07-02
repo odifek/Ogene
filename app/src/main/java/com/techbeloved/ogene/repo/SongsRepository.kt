@@ -1,6 +1,8 @@
 package com.techbeloved.ogene.repo
 
 import com.techbeloved.ogene.repo.models.Song
+import io.reactivex.Observable
+import io.reactivex.Single
 
 interface SongsRepository {
 
@@ -8,7 +10,7 @@ interface SongsRepository {
 
     fun getSongAtPosition(position: Int): Song?
 
-    fun getSongsAtRange(startPosition: Int, endPosition: Int): List<Song>
+    fun getSongsAtRange(startPosition: Int, endPosition: Int): Single<List<Song>>
 
-    fun getAllSongs(): List<Song>
+    fun getAllSongs(): Single<List<Song>>
 }

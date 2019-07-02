@@ -70,7 +70,7 @@ class Song() {
         track = cursor.getLong(cursor.getColumnIndexOrThrow(MediaStore.Audio.AudioColumns.TRACK))
         contentUri = Uri.withAppendedPath(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, id.toString())
         // Eg 1234_even_i
-        mediaId = id.toString() + "_" + title!!.replace(" ", "_")
+        mediaId = id.toString()
         mimeType = cursor.getString(cursor.getColumnIndexOrThrow(MediaStore.Audio.AudioColumns.MIME_TYPE))
     }
 

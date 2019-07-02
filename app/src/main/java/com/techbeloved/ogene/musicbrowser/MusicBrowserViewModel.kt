@@ -1,20 +1,39 @@
 package com.techbeloved.ogene.musicbrowser
 
 import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
-import androidx.paging.LivePagedListBuilder
-import androidx.paging.PagedList
 import com.techbeloved.ogene.musicbrowser.models.MediaItemModel
+import com.techbeloved.ogene.schedulers.SchedulerProvider
+import io.reactivex.disposables.CompositeDisposable
+import timber.log.Timber
 import javax.inject.Inject
 
-class MusicBrowserViewModel @Inject constructor (private val mediaSessionConnection: MediaSessionConnection): ViewModel() {
+class MusicBrowserViewModel @Inject constructor(
+    private val mediaSessionConnection: MediaSessionConnection,
+    private val musicProvider: MusicProvider,
+    private val schedulerProvider: SchedulerProvider
+) : ViewModel() {
 
-    fun getItemsInCategory(parentId: String): LiveData<PagedList<MediaItemModel>> {
-        val config = PagedList.Config.Builder()
-            .setEnablePlaceholders(false)
-            .setPageSize(10)
-            .build()
-        return LivePagedListBuilder<Int, MediaItemModel>(MusicBrowserDataSourceFactory(mediaSessionConnection.browser, parentId), config)
-            .build()
+    val connected: LiveData<Boolean> = mediaSessionConnection.isConnected
+
+    private val itemsLiveData: MutableLiveData<List<MediaItemModel>> = MutableLiveData()
+    val musicItems: LiveData<List<MediaItemModel>> get() = itemsLiveData
+
+    private val disposables = CompositeDisposable()
+
+    fun getItemsInCategory(parentId: String) {
+        musicProvider.loadSongs(parentId, mediaSessionConnection.browser).subscribeOn(schedulerProvider.io())
+            .observeOn(schedulerProvider.ui())
+            .subscribe({ items ->
+                itemsLiveData.value = items
+                Timber.i("received: %s", items.map { "${it.title}\n" })
+            }, { Timber.w(it) })
+            .let { disposables.add(it) }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        if (!disposables.isDisposed) disposables.dispose()
     }
 }

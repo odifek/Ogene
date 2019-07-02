@@ -2,24 +2,27 @@ package com.techbeloved.ogene
 
 import android.app.PendingIntent
 import android.content.*
-import android.content.res.AssetFileDescriptor
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
 import android.media.AudioManager
-import android.media.MediaPlayer
 import android.os.Build
 import android.os.Bundle
+import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaBrowserCompat.MediaItem
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
-import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.media.MediaBrowserServiceCompat
 import androidx.media.session.MediaButtonReceiver
-import java.io.IOException
+import com.techbeloved.ogene.repo.SongsRepository
+import com.techbeloved.ogene.repo.extensions.mediaItem
+import com.techbeloved.ogene.schedulers.SchedulerProvider
+import io.reactivex.disposables.CompositeDisposable
+import timber.log.Timber
+import javax.inject.Inject
 
 private const val MEDIA_ROOT_ID = "__ROOT__"
 private const val EMPTY_MEDIA_ROOT_ID = "__EMPTY__"
@@ -33,8 +36,19 @@ class MusicService : MediaBrowserServiceCompat(), MediaPlayback.Callback {
     private var mediaSession: MediaSessionCompat? = null
     private lateinit var stateBuilder: PlaybackStateCompat.Builder
 
+    @Inject
+    lateinit var songsRepository: SongsRepository
+
+    @Inject
+    lateinit var schedulerProvider: SchedulerProvider
+
+    private val disposables = CompositeDisposable()
+
     override fun onCreate() {
         super.onCreate()
+
+
+        (application as OgeneApp).appComponent.inject(this)
 
         player = MediaPlayerAdapter(this, this)
 
@@ -69,8 +83,35 @@ class MusicService : MediaBrowserServiceCompat(), MediaPlayback.Callback {
 
 
     override fun onLoadChildren(parentId: String, result: Result<MutableList<MediaItem>>) {
-        val mediaItems: MutableList<MediaItem> = mutableListOf()
-        result.sendResult(mediaItems)
+        result.detach()
+        Timber.i("loadChildren called with no options: %s", parentId)
+
+        songsRepository.getAllSongs().subscribeOn(schedulerProvider.io()).subscribe(
+            { songs ->
+                Timber.i("Received: %s", songs)
+                songs.map { it.mediaItem(parentId) }.let { result.sendResult(it.toMutableList()) }
+            },
+            { error -> Timber.w(error) }
+        ).let { disposables.add(it) }
+
+    }
+
+    override fun onLoadChildren(parentId: String, result: Result<MutableList<MediaItem>>, options: Bundle) {
+        result.detach()
+        val pageSize = options.getInt(MediaBrowserCompat.EXTRA_PAGE_SIZE)
+        val startPos = options.getInt(MediaBrowserCompat.EXTRA_PAGE) * pageSize
+        val endPos = startPos + pageSize
+
+        songsRepository.getSongsAtRange(startPos, endPos).subscribeOn(schedulerProvider.io()).subscribe(
+            { songs ->
+                Timber.i("Received: %s", songs.map { "${it.title}\n" })
+                songs.map { it.mediaItem(parentId) }.let { result.sendResult(it.toMutableList()) }
+            },
+            { error -> Timber.w(error) }
+        ).let { disposables.add(it) }
+
+        Timber.i("loadChildren called with: %s", parentId)
+
     }
 
     override fun onGetRoot(clientPackageName: String, clientUid: Int, rootHints: Bundle?): BrowserRoot? {
@@ -121,6 +162,7 @@ class MusicService : MediaBrowserServiceCompat(), MediaPlayback.Callback {
             this?.isActive = false
             this?.release()
         }
+        if (!disposables.isDisposed) disposables.dispose()
     }
 
     // region Media Player callbacks

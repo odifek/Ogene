@@ -1,98 +1,85 @@
 package com.techbeloved.ogene
 
-import android.content.ComponentName
-import androidx.appcompat.app.AppCompatActivity
+import android.Manifest
 import android.os.Bundle
-import android.os.RemoteException
-import android.support.v4.media.MediaBrowserCompat
-import android.support.v4.media.session.MediaControllerCompat
-import android.support.v4.media.session.PlaybackStateCompat
-import android.util.Log
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.databinding.DataBindingUtil
+import androidx.lifecycle.Observer
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.ViewModelProviders
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.techbeloved.ogene.databinding.ActivityMainBinding
+import com.techbeloved.ogene.musicbrowser.CATEGORY_ALL_SONGS
+import com.techbeloved.ogene.musicbrowser.MediaListAdapter
+import com.techbeloved.ogene.musicbrowser.MusicBrowserViewModel
+import com.techbeloved.ogene.musicbrowser.buildCategoryUri
+import com.vanniktech.rxpermission.Permission
+import com.vanniktech.rxpermission.RealRxPermission
+import io.reactivex.disposables.CompositeDisposable
 import timber.log.Timber
+import javax.inject.Inject
 
-private const val STATE_PLAYING = 1
-private const val STATE_PAUSED = 0
+
 class MainActivity : AppCompatActivity() {
-    private var currentState: Int = STATE_PAUSED
-    private lateinit var mediaBrowser: MediaBrowserCompat
-    private lateinit var mediaController: MediaControllerCompat
 
     private lateinit var binding: ActivityMainBinding
 
-    private val mediaControllerCallback: MediaControllerCompat.Callback =
-        object : MediaControllerCompat.Callback() {
-            override fun onPlaybackStateChanged(state: PlaybackStateCompat?) {
-                super.onPlaybackStateChanged(state)
-                state ?: return
+    private val rxPermission by lazy { RealRxPermission.getInstance(applicationContext) }
 
-                when (state.state) {
-                    PlaybackStateCompat.STATE_PLAYING -> {
-                        currentState = STATE_PLAYING
-                        binding.buttonPlayPause.text = "Pause"
-                    }
-                    else -> {
-                        currentState = STATE_PAUSED
-                        binding.buttonPlayPause.text = "Play"
-                    }
-                }
-            }
-        }
-    private val connectionCallback: MediaBrowserCompat.ConnectionCallback =
-        object : MediaBrowserCompat.ConnectionCallback() {
-            override fun onConnected() {
-                super.onConnected()
-                Log.i("MediaBrowser", "we are connected")
-                try {
-                    val token = mediaBrowser.sessionToken
-                    mediaController = MediaControllerCompat(this@MainActivity, token)
-                    mediaController.registerCallback(mediaControllerCallback)
-                    MediaControllerCompat.setMediaController(this@MainActivity, mediaController)
-                    MediaControllerCompat.getMediaController(this@MainActivity).transportControls.playFromMediaId("${R.raw.you_alone}", null)
-                }  catch (e : RemoteException) {
-                    Log.w("MainActivity", e)
-                }
-            }
-        }
+    @Inject
+    lateinit var viewModelFactory: ViewModelProvider.Factory
 
+    private val disposables = CompositeDisposable()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding =  DataBindingUtil.setContentView(this, R.layout.activity_main)
+        binding = DataBindingUtil.setContentView(this, R.layout.activity_main)
+
+        (application as OgeneApp).appComponent.inject(this)
 
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
         }
 
-        mediaBrowser = MediaBrowserCompat(this, ComponentName(this, MusicService::class.java),
-            connectionCallback, intent.extras)
-        mediaBrowser.connect()
+        rxPermission.request(Manifest.permission.READ_EXTERNAL_STORAGE)
+            .subscribe({ permission ->
+                if (permission.state() == Permission.State.GRANTED) {
+                    val mediaListAdapter = MediaListAdapter { view, mediaItemModel ->
+                        Timber.i("Item clicked: %s", mediaItemModel)
+                    }
 
-        binding.buttonPlayPause.setOnClickListener { v ->
-            val controller = MediaControllerCompat.getMediaController(this)
-            if (controller != null) {
-                when {
-                    currentState == STATE_PAUSED -> {
-                        controller.transportControls.play()
-                        currentState = STATE_PLAYING
+                    val viewModel: MusicBrowserViewModel =
+                        ViewModelProviders.of(this, viewModelFactory)[MusicBrowserViewModel::class.java]
+
+                    binding.recyclerviewSongList.apply {
+                        adapter = mediaListAdapter
+                        layoutManager = LinearLayoutManager(this@MainActivity)
                     }
-                    controller.playbackState.state == PlaybackStateCompat.STATE_PLAYING -> {
-                        controller.transportControls.pause()
-                        currentState = STATE_PAUSED
-                    }
-                    else -> Toast.makeText(this, "Media not in playable state!", Toast.LENGTH_SHORT).show()
+
+                    val allSongsCategory = buildCategoryUri(CATEGORY_ALL_SONGS, 0)
+                    viewModel.connected.observe(this, Observer { connected ->
+                        if (connected) {
+                            viewModel.getItemsInCategory(allSongsCategory)
+                        }
+                    })
+
+                    viewModel.musicItems.observe(this, Observer { mediaItems ->
+                        Timber.i("Received items: %s", mediaItems.size)
+                        mediaListAdapter.submitList(mediaItems)
+                    })
+
+                } else {
+                    Toast.makeText(this, "You need to grant read external disk permission", Toast.LENGTH_SHORT).show()
                 }
-            }
-        }
+            }, { Timber.i(it) })
+            .let { disposables.add(it) }
+
+
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        if (MediaControllerCompat.getMediaController(this).playbackState.state == PlaybackStateCompat.STATE_PLAYING) {
-            MediaControllerCompat.getMediaController(this).transportControls.pause()
-        }
-        mediaBrowser.disconnect()
+        if (!disposables.isDisposed) disposables.dispose()
     }
 }

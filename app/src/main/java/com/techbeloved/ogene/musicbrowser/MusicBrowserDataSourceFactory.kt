@@ -19,8 +19,8 @@ class MusicBrowserDataSourceFactory(
 
 /**
  * Provides a data source for browsing the given parentId
- * @param mediaBrowser is the [MediaBrowserCompat] client to use to subscribe to the parent id
- * @param parentId the parent or category id which we want to list the children
+ * @param mediaBrowser is the [MediaBrowserCompat] client to use to subscribe to the parent mediaId
+ * @param parentId the parent or category mediaId which we want to list the children
  */
 class MusicBrowserDataSource(
     private val mediaBrowser: MediaBrowserCompat,
