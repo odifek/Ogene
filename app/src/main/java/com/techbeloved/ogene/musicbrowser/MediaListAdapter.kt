@@ -4,6 +4,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import androidx.databinding.DataBindingUtil
+import androidx.paging.PagedListAdapter
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
@@ -11,7 +12,7 @@ import com.techbeloved.ogene.R
 import com.techbeloved.ogene.databinding.ItemMediaBinding
 import com.techbeloved.ogene.musicbrowser.models.MediaItemModel
 
-class MediaListAdapter(private val listener: (View, MediaItemModel) -> Unit): ListAdapter<MediaItemModel, MediaListAdapter.ViewHolder>(diffCallback()) {
+class MediaListAdapter(private val listener: (View, MediaItemModel?) -> Unit): PagedListAdapter<MediaItemModel, MediaListAdapter.ViewHolder>(diffCallback()) {
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
         val inflater = LayoutInflater.from(parent.context)
         val binding: ItemMediaBinding = DataBindingUtil.inflate(inflater, R.layout.item_media, parent, false)

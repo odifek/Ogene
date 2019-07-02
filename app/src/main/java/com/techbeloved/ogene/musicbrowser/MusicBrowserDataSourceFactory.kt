@@ -16,7 +16,6 @@ class MusicBrowserDataSourceFactory(
     }
 
 }
-
 /**
  * Provides a data source for browsing the given parentId
  * @param mediaBrowser is the [MediaBrowserCompat] client to use to subscribe to the parent mediaId
@@ -77,7 +76,7 @@ class MusicBrowserDataSource(
     private fun getInitialPageBundle(params: LoadInitialParams): Bundle {
         val extra = Bundle()
         extra.putInt(MediaBrowserCompat.EXTRA_PAGE, 0)
-        extra.putInt(MediaBrowserCompat.EXTRA_PAGE_SIZE, params.pageSize)
+        extra.putInt(MediaBrowserCompat.EXTRA_PAGE_SIZE, params.requestedLoadSize)
         return extra
     }
 
