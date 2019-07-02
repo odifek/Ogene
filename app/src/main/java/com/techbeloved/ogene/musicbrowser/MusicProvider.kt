@@ -5,6 +5,7 @@ import android.support.v4.media.MediaBrowserCompat
 import com.techbeloved.ogene.musicbrowser.models.MediaItemModel
 import com.techbeloved.ogene.musicbrowser.models.SimpleMediaItem
 import io.reactivex.Observable
+import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -16,11 +17,11 @@ class MusicProvider @Inject constructor() {
             mediaBrowser.subscribe(parentId, object : MediaBrowserCompat.SubscriptionCallback() {
                 override fun onChildrenLoaded(
                     parentId: String,
-                    children: MutableList<MediaBrowserCompat.MediaItem>,
-                    options: Bundle
+                    children: MutableList<MediaBrowserCompat.MediaItem>
                 ) {
 
                     val itemModels = children.map(mediaItemToModelMapper)
+                    Timber.i("Updating ui with items: %s", itemModels.size)
                     if (!emitter.isDisposed) {
                         emitter.onNext(itemModels)
                     }

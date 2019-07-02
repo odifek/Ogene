@@ -57,16 +57,15 @@ class MainActivity : AppCompatActivity() {
                         layoutManager = LinearLayoutManager(this@MainActivity)
                     }
 
+                    viewModel.musicItems.observe(this, Observer { mediaItems ->
+                        mediaListAdapter.submitList(mediaItems)
+                    })
+
                     val allSongsCategory = buildCategoryUri(CATEGORY_ALL_SONGS, 0)
                     viewModel.connected.observe(this, Observer { connected ->
                         if (connected) {
                             viewModel.getItemsInCategory(allSongsCategory)
                         }
-                    })
-
-                    viewModel.musicItems.observe(this, Observer { mediaItems ->
-                        Timber.i("Received items: %s", mediaItems.size)
-                        mediaListAdapter.submitList(mediaItems)
                     })
 
                 } else {

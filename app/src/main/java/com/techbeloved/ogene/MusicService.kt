@@ -88,7 +88,6 @@ class MusicService : MediaBrowserServiceCompat(), MediaPlayback.Callback {
 
         songsRepository.getAllSongs().subscribeOn(schedulerProvider.io()).subscribe(
             { songs ->
-                Timber.i("Received: %s", songs)
                 songs.map { it.mediaItem(parentId) }.let { result.sendResult(it.toMutableList()) }
             },
             { error -> Timber.w(error) }
@@ -104,7 +103,6 @@ class MusicService : MediaBrowserServiceCompat(), MediaPlayback.Callback {
 
         songsRepository.getSongsAtRange(startPos, endPos).subscribeOn(schedulerProvider.io()).subscribe(
             { songs ->
-                Timber.i("Received: %s", songs.map { "${it.title}\n" })
                 songs.map { it.mediaItem(parentId) }.let { result.sendResult(it.toMutableList()) }
             },
             { error -> Timber.w(error) }

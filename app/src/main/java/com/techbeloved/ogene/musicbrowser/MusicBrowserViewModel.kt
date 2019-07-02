@@ -27,7 +27,6 @@ class MusicBrowserViewModel @Inject constructor(
             .observeOn(schedulerProvider.ui())
             .subscribe({ items ->
                 itemsLiveData.value = items
-                Timber.i("received: %s", items.map { "${it.title}\n" })
             }, { Timber.w(it) })
             .let { disposables.add(it) }
     }
