@@ -11,6 +11,7 @@ import android.util.Log
 import android.widget.Toast
 import androidx.databinding.DataBindingUtil
 import com.techbeloved.ogene.databinding.ActivityMainBinding
+import timber.log.Timber
 
 private const val STATE_PLAYING = 1
 private const val STATE_PAUSED = 0
@@ -61,6 +62,9 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding =  DataBindingUtil.setContentView(this, R.layout.activity_main)
 
+        if (BuildConfig.DEBUG) {
+            Timber.plant(Timber.DebugTree())
+        }
 
         mediaBrowser = MediaBrowserCompat(this, ComponentName(this, MusicService::class.java),
             connectionCallback, intent.extras)
