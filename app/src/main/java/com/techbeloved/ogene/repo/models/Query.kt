@@ -22,7 +22,7 @@ class Query(
     ) {
         fun uri(uri: Uri) = apply { this.uri = uri }
         fun projection(projection: List<String>?) = apply { this.projection = projection }
-        fun selection(selection: String) = apply { this.selection = selection }
+        fun selection(selection: String?) = apply { this.selection = selection }
         fun args(args: List<String>?) = apply { this.args = args }
         fun sort(sort: String?) = apply { this.sort = sort }
         fun build() = Query(

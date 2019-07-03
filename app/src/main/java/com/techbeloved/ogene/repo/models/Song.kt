@@ -119,5 +119,55 @@ class Song() {
                 .sort(MediaStore.Audio.Media.TITLE)
                 .build()
         }
+
+        fun songsInAlbumQuery(albumId: Long): Query {
+            val selection = "(${MediaStore.Audio.Media.ALBUM_ID}=?)"
+            return Query.Builder()
+                .uri(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI)
+                .projection(null)
+                .selection(selection)
+                .args(listOf(albumId.toString()))
+                .sort(getSortOrder(SortBy.TRACK))
+                .build()
+        }
+
+        fun songsByArtistQuery(artistId: Long): Query {
+            val selection = "(${MediaStore.Audio.Media.ARTIST_ID}=?)"
+            return Query.Builder()
+                .uri(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI)
+                .projection(null)
+                .selection(selection)
+                .args(listOf(artistId.toString()))
+                .sort(getSortOrder(SortBy.ALBUM))
+                .build()
+        }
+
+        fun songsInGenreQuery(genreId: Long, sortBy: SortBy = SortBy.ALBUM): Query {
+            val uri = MediaStore.Audio.Genres.Members.getContentUri("external", genreId)
+            val sortOrder = getSortOrder(sortBy)
+            return Query.Builder()
+                .uri(uri)
+                .projection(null)
+                .selection(selection)
+                .args(null)
+                .sort(sortOrder)
+                .build()
+        }
+
+        private fun getSortOrder(sortBy: SortBy = SortBy.TITLE): String {
+            return when (sortBy) {
+                SortBy.TITLE -> MediaStore.Audio.Media.DEFAULT_SORT_ORDER
+                SortBy.ALBUM -> MediaStore.Audio.Media.ALBUM_KEY
+                SortBy.YEAR -> MediaStore.Audio.Media.YEAR
+                SortBy.ARTIST -> MediaStore.Audio.Media.ARTIST_KEY
+                SortBy.DATE_ADDED -> MediaStore.Audio.Media.DATE_ADDED
+                SortBy.TRACK -> MediaStore.Audio.Media.TRACK + " ASC"
+
+            }
+        }
+    }
+
+    enum class SortBy {
+        TITLE, ALBUM, YEAR, ARTIST, DATE_ADDED, TRACK
     }
 }
