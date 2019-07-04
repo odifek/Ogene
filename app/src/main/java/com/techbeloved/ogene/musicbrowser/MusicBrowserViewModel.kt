@@ -27,9 +27,9 @@ class MusicBrowserViewModel @Inject constructor(
     fun getItemsInCategory(parentId: String): LiveData<PagedList<MediaItemModel>> {
         val config = PagedList.Config.Builder()
             .setEnablePlaceholders(false)
-            .setPageSize(10)
+            .setPageSize(20)
             .build()
-        return LivePagedListBuilder<Int, MediaItemModel>(MusicBrowserDataSourceFactory(mediaSessionConnection.browser, parentId), config)
+        return LivePagedListBuilder(MusicBrowserDataSourceFactory(mediaSessionConnection.browser, parentId), config)
             .build()
     }
 }
