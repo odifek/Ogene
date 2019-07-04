@@ -8,6 +8,6 @@ import javax.inject.Singleton
 interface SongsRepositoryModule {
     @Singleton
     @Binds
-    fun provideSongsRepository(songsRepo: CursorBasedSongsRepository): SongsRepository
+    fun provideSongsRepository(songsRepoImp: SongsRepositoryImp): SongsRepository
 
 }

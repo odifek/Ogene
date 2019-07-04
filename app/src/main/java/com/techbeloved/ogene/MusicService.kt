@@ -19,6 +19,7 @@ import androidx.media.MediaBrowserServiceCompat
 import androidx.media.session.MediaButtonReceiver
 import com.techbeloved.ogene.repo.SongsRepository
 import com.techbeloved.ogene.repo.extensions.mediaItem
+import com.techbeloved.ogene.repo.models.Song
 import com.techbeloved.ogene.schedulers.SchedulerProvider
 import io.reactivex.disposables.CompositeDisposable
 import timber.log.Timber
@@ -86,33 +87,48 @@ class MusicService : MediaBrowserServiceCompat(), MediaPlayback.Callback {
         result.detach()
         Timber.i("loadChildren called with no options: %s", parentId)
 
-        songsRepository.getAllSongs().subscribeOn(schedulerProvider.io()).subscribe(
-            { songs ->
-                songs.map { it.mediaItem(parentId) }.let { result.sendResult(it.toMutableList()) }
-            },
-            { error -> Timber.w(error) }
-        ).let { disposables.add(it) }
+        songsRepository.getAllSongs()
+            .take(1)
+            .subscribeOn(schedulerProvider.io())
+            .subscribe(
+                { songs ->
+                    songs.map { it.mediaItem(parentId) }
+                        .let { result.sendResult(it.toMutableList()) }
+                },
+                { error -> Timber.w(error) }
+            ).let { disposables.add(it) }
 
     }
 
-    override fun onLoadChildren(parentId: String, result: Result<MutableList<MediaItem>>, options: Bundle) {
+    override fun onLoadChildren(
+        parentId: String,
+        result: Result<MutableList<MediaItem>>,
+        options: Bundle
+    ) {
         result.detach()
         val pageSize = options.getInt(MediaBrowserCompat.EXTRA_PAGE_SIZE)
         val startPos = options.getInt(MediaBrowserCompat.EXTRA_PAGE) * pageSize
-        val endPos = startPos + pageSize
 
-        songsRepository.getSongsAtRange(startPos, endPos).subscribeOn(schedulerProvider.io()).subscribe(
-            { songs ->
-                songs.map { it.mediaItem(parentId) }.let { result.sendResult(it.toMutableList()) }
-            },
-            { error -> Timber.w(error) }
-        ).let { disposables.add(it) }
+        songsRepository.getAllSongs(startPos, pageSize, Song.SortBy.DATE_ADDED)
+            .take(1)
+            .subscribeOn(schedulerProvider.io())
+            .subscribe(
+                { songs ->
+                    songs.map { it.mediaItem(parentId) }
+                        .let { result.sendResult(it.toMutableList()) }
+                },
+                { error -> Timber.w(error) }
+            ).let { disposables.add(it) }
 
         Timber.i("loadChildren called with: %s", parentId)
 
     }
 
-    override fun onGetRoot(clientPackageName: String, clientUid: Int, rootHints: Bundle?): BrowserRoot? {
+    override fun onGetRoot(
+        clientPackageName: String,
+        clientUid: Int,
+        rootHints: Bundle?
+    ): BrowserRoot? {
         return BrowserRoot(MEDIA_ROOT_ID, null)
     }
 
@@ -129,7 +145,10 @@ class MusicService : MediaBrowserServiceCompat(), MediaPlayback.Callback {
             NotificationCompat.Action(
                 R.drawable.ic_pause,
                 getString(R.string.pause),
-                MediaButtonReceiver.buildMediaButtonPendingIntent(this, PlaybackStateCompat.ACTION_PLAY_PAUSE)
+                MediaButtonReceiver.buildMediaButtonPendingIntent(
+                    this,
+                    PlaybackStateCompat.ACTION_PLAY_PAUSE
+                )
             )
         )
         val notification = builder.build()
@@ -248,17 +267,29 @@ class MusicService : MediaBrowserServiceCompat(), MediaPlayback.Callback {
                         PlaybackStateCompat.ACTION_PLAY_PAUSE
                                 or PlaybackStateCompat.ACTION_PAUSE
                     )
-                    playbackStateBuilder.setState(state, PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, 1f)
+                    playbackStateBuilder.setState(
+                        state,
+                        PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN,
+                        1f
+                    )
                 }
                 PlaybackStateCompat.STATE_PAUSED -> {
                     playbackStateBuilder.setActions(
                         PlaybackStateCompat.ACTION_PLAY_PAUSE
                                 or PlaybackStateCompat.ACTION_PLAY
                     )
-                    playbackStateBuilder.setState(state, PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, 0f)
+                    playbackStateBuilder.setState(
+                        state,
+                        PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN,
+                        0f
+                    )
                 }
                 PlaybackStateCompat.STATE_STOPPED -> {
-                    playbackStateBuilder.setState(state, PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN, 0f)
+                    playbackStateBuilder.setState(
+                        state,
+                        PlaybackStateCompat.PLAYBACK_POSITION_UNKNOWN,
+                        0f
+                    )
                 }
             }
 
@@ -359,7 +390,10 @@ object MediaStyleHelper {
 
             // Stop the service when the notification is swiped away
             setDeleteIntent(
-                MediaButtonReceiver.buildMediaButtonPendingIntent(context, PlaybackStateCompat.ACTION_STOP)
+                MediaButtonReceiver.buildMediaButtonPendingIntent(
+                    context,
+                    PlaybackStateCompat.ACTION_STOP
+                )
             )
 
             // Make the transport controls visible on the lockscreen

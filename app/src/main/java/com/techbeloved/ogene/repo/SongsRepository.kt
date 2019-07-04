@@ -2,15 +2,17 @@ package com.techbeloved.ogene.repo
 
 import com.techbeloved.ogene.repo.models.Song
 import io.reactivex.Observable
-import io.reactivex.Single
 
 interface SongsRepository {
 
-    fun numberOfSongs(): Int
+    fun getSongsForAlbum(albumId: Long, offset: Int = 0, limit: Int = -1, sortBy: Song.SortBy = Song.SortBy.TRACK): Observable<List<Song>>
 
-    fun getSongAtPosition(position: Int): Song?
+    fun getSongsForArtist(artistId: Long, offset: Int = 0, limit: Int = -1, sortBy: Song.SortBy = Song.SortBy.ALBUM): Observable<List<Song>>
 
-    fun getSongsAtRange(startPosition: Int, endPosition: Int): Single<List<Song>>
+    fun getSongsForGenre(genreId: Long, offset: Int = 0, limit: Int = -1, sortBy: Song.SortBy = Song.SortBy.ALBUM): Observable<List<Song>>
 
-    fun getAllSongs(): Single<List<Song>>
+    fun getSongById(songId: Long): Observable<Song>
+
+    fun getAllSongs(offset: Int = 0, limit: Int = -1, sortBy: Song.SortBy = Song.SortBy.ALBUM): Observable<List<Song>>
+
 }

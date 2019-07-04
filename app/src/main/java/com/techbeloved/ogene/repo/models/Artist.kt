@@ -29,6 +29,17 @@ class Artist() {
                 .build()
         }
 
+        fun singleArtistQuery(artistId: Long): Query {
+            val selection = "${MediaStore.Audio.Artists._ID}=$artistId"
+            return Query.Builder()
+                .uri(MediaStore.Audio.Artists.EXTERNAL_CONTENT_URI)
+                .projection(null)
+                .selection(selection)
+                .args(null)
+                .sort(null)
+                .build()
+        }
+
     }
 
 }

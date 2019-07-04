@@ -108,6 +108,16 @@ class Song() {
                 .sort(sortOrder)
                 .build()
 
+        fun allSongsQuery(sortBy: SortBy = SortBy.ALBUM): Query {
+            return Query.Builder()
+                .uri(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI)
+                .projection(null)
+                .selection(selection)
+                .args(null)
+                .sort(getSortOrder(sortBy))
+                .build()
+
+        }
         // Query for getting a single item
         fun songQuery(id: String): Query {
             val selection = MediaStore.Audio.Media.IS_MUSIC + "=1" + " AND " + MediaStore.Audio.Media._ID + "=?"
@@ -120,18 +130,21 @@ class Song() {
                 .build()
         }
 
-        fun songsInAlbumQuery(albumId: Long): Query {
+        fun songsInAlbumQuery(
+            albumId: Long,
+            sortBy: SortBy
+        ): Query {
             val selection = "(${MediaStore.Audio.Media.ALBUM_ID}=?)"
             return Query.Builder()
                 .uri(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI)
                 .projection(null)
                 .selection(selection)
                 .args(listOf(albumId.toString()))
-                .sort(getSortOrder(SortBy.TRACK))
+                .sort(getSortOrder(sortBy))
                 .build()
         }
 
-        fun songsByArtistQuery(artistId: Long): Query {
+        fun songsByArtistQuery(artistId: Long, sortBy: SortBy = SortBy.ALBUM): Query {
             val selection = "(${MediaStore.Audio.Media.ARTIST_ID}=?)"
             return Query.Builder()
                 .uri(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI)
