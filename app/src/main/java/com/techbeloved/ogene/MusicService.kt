@@ -17,6 +17,8 @@ import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.media.MediaBrowserServiceCompat
 import androidx.media.session.MediaButtonReceiver
+import com.techbeloved.ogene.musicbrowser.CATEGORY_ROOT
+import com.techbeloved.ogene.repo.MusicProvider
 import com.techbeloved.ogene.repo.SongsRepository
 import com.techbeloved.ogene.repo.extensions.mediaItem
 import com.techbeloved.ogene.repo.models.Song
@@ -38,10 +40,10 @@ class MusicService : MediaBrowserServiceCompat(), MediaPlayback.Callback {
     private lateinit var stateBuilder: PlaybackStateCompat.Builder
 
     @Inject
-    lateinit var songsRepository: SongsRepository
+    lateinit var schedulerProvider: SchedulerProvider
 
     @Inject
-    lateinit var schedulerProvider: SchedulerProvider
+    lateinit var musicProvider: MusicProvider
 
     private val disposables = CompositeDisposable()
 
@@ -83,45 +85,34 @@ class MusicService : MediaBrowserServiceCompat(), MediaPlayback.Callback {
     }
 
 
-    override fun onLoadChildren(parentId: String, result: Result<MutableList<MediaItem>>) {
+    override fun onLoadChildren(parentId: String, result: Result<List<MediaItem>>) {
         result.detach()
         Timber.i("loadChildren called with no options: %s", parentId)
-
-        songsRepository.getAllSongs()
-            .take(1)
+        musicProvider.getMediaItemsForMediaId(parentId)
             .subscribeOn(schedulerProvider.io())
             .subscribe(
-                { songs ->
-                    songs.map { it.mediaItem(parentId) }
-                        .let { result.sendResult(it.toMutableList()) }
-                },
-                { error -> Timber.w(error) }
+                { mediaItems -> result.sendResult(mediaItems)},
+                { error -> Timber.w(error, "Error loading items for id: %s", parentId)}
             ).let { disposables.add(it) }
 
     }
 
     override fun onLoadChildren(
         parentId: String,
-        result: Result<MutableList<MediaItem>>,
+        result: Result<List<MediaItem>>,
         options: Bundle
     ) {
         result.detach()
         val pageSize = options.getInt(MediaBrowserCompat.EXTRA_PAGE_SIZE)
         val startPos = options.getInt(MediaBrowserCompat.EXTRA_PAGE) * pageSize
 
-        songsRepository.getAllSongs(startPos, pageSize, Song.SortBy.DATE_ADDED)
-            .take(1)
+        musicProvider.getMediaItemsForMediaId(parentId, startPos, pageSize)
             .subscribeOn(schedulerProvider.io())
             .subscribe(
-                { songs ->
-                    songs.map { it.mediaItem(parentId) }
-                        .let { result.sendResult(it.toMutableList()) }
-                },
-                { error -> Timber.w(error) }
+                { mediaItems -> result.sendResult(mediaItems)},
+                { error -> Timber.w(error, "Error loading items for id: %s", parentId)}
             ).let { disposables.add(it) }
-
         Timber.i("loadChildren called with: %s", parentId)
-
     }
 
     override fun onGetRoot(
@@ -129,7 +120,7 @@ class MusicService : MediaBrowserServiceCompat(), MediaPlayback.Callback {
         clientUid: Int,
         rootHints: Bundle?
     ): BrowserRoot? {
-        return BrowserRoot(MEDIA_ROOT_ID, null)
+        return BrowserRoot(CATEGORY_ROOT, null)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

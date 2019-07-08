@@ -6,7 +6,7 @@ import android.provider.MediaStore
 class Genre() {
 
     var name: String? = null
-    var id: Long? = 0
+    var id: Long = 0
 
     constructor(cursor: Cursor): this() {
         id = cursor.getLong(cursor.getColumnIndex(MediaStore.Audio.Genres._ID))

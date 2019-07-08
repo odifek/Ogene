@@ -32,7 +32,7 @@ const val ROOT_REGEX = """($SCHEME)://$AUTHORITY/?${'$'}"""
  * category song item:  content://com.techbeloved.ogene/{category}/{categoryId}/songs/{songId}
  **/
 
-const val CATEGORY_TOP_LEVEL_REGEX = """($SCHEME)://$AUTHORITY/($TOP_LEVEL_CATEGORIES)/?${'$'}"""
+const val CATEGORY_TOP_LEVEL_REGEX = """($SCHEME)://$AUTHORITY/($TOP_LEVEL_CATEGORIES|$CATEGORY_ALL_SONGS)/?${'$'}"""
 
 const val CATEGORY_REGEX = """($SCHEME)://$AUTHORITY/($TOP_LEVEL_CATEGORIES)/(\d+)/?${'$'}"""
 
@@ -219,6 +219,8 @@ fun String.isValidCategoryUri(): Boolean {
 
 fun String.isValidTopLevelCategory() = CATEGORY_TOP_LEVEL_REGEX.toRegex() matches this
 
+fun String.isValidSubCategoryListing() = SUB_CATEGORY_LISTING_REGEX.toRegex() matches this
+
 /**
  * Checks that the uri is of the form - content://com.techbeloved.ogene/{category}/{categoryId}/{subcategory}/{subcategoryId}
  */
@@ -243,6 +245,13 @@ fun buildCategoryUri(category: String, categoryId: Int): String {
 
 fun buildSubCategoryUri(parentUri: String, subCategory: String, subCategoryId: Long): String {
     return "$parentUri/$subCategory/$subCategoryId"
+}
+
+fun String.appendItemId(itemId: Long): String? {
+    if (this.isValidTopLevelCategory() || this.isValidSubCategoryListing()) {
+        return "$this/$itemId"
+    }
+    return null
 }
 
 /**

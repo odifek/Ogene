@@ -10,10 +10,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProviders
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.techbeloved.ogene.databinding.ActivityMainBinding
-import com.techbeloved.ogene.musicbrowser.CATEGORY_ALL_SONGS
-import com.techbeloved.ogene.musicbrowser.MediaListAdapter
-import com.techbeloved.ogene.musicbrowser.MusicBrowserViewModel
-import com.techbeloved.ogene.musicbrowser.buildCategoryUri
+import com.techbeloved.ogene.musicbrowser.*
 import com.vanniktech.rxpermission.Permission
 import com.vanniktech.rxpermission.RealRxPermission
 import io.reactivex.disposables.CompositeDisposable
@@ -57,7 +54,7 @@ class MainActivity : AppCompatActivity() {
                         layoutManager = LinearLayoutManager(this@MainActivity)
                     }
 
-                    val allSongsCategory = buildCategoryUri(CATEGORY_ALL_SONGS, 0)
+                    val allSongsCategory = "$CATEGORY_ROOT/$CATEGORY_ALL_SONGS"
                     viewModel.connected.observe(this, Observer { connected ->
                         if (connected) {
                             viewModel.getItemsInCategory(allSongsCategory).observe(this, Observer { mediaItems ->
