@@ -10,19 +10,33 @@ const val CATEGORY_PLAYLISTS = "playlist"
 const val CATEGORY_GENRES = "genres"
 
 /**
- * Matches a valid root
+ * The root of all roots
+ */
+const val CATEGORY_ROOT = """$SCHEME://$AUTHORITY"""
+
+
+private const val TOP_LEVEL_CATEGORIES = "$CATEGORY_ALBUMS|$CATEGORY_ALL_SONGS|$CATEGORY_ARTISTS|$CATEGORY_GENRES|$CATEGORY_PLAYLISTS"
+
+/**
+ * Matches a valid
+ * root:-                content://com.techbeloved.ogene/
+ *
  */
 
-const val ROOT_REGEX = """($SCHEME)://$AUTHORITY/(\w+)/?${'$'}"""
+const val ROOT_REGEX = """($SCHEME)://$AUTHORITY/?${'$'}"""
 
 /**
  * Matches a url string of the form
- * content://com.techbeloved.ogene/{category}/{categoryId}
- * content://com.techbeloved.ogene/{category}/{categoryId}/songs/{songId}
+ * category:            content://com.techbeloved.ogene/{category}
+ * category details:    content://com.techbeloved.ogene/{category}/{categoryId}
+ * category song item:  content://com.techbeloved.ogene/{category}/{categoryId}/songs/{songId}
  **/
-const val CATEGORY_REGEX = """($SCHEME)://$AUTHORITY/(\w+)/(\d+)/?${'$'}"""
 
-const val SONG_ITEM_REGEX = """($SCHEME)://$AUTHORITY/(\w+)/(\d+)/songs/(\d+)/?${'$'}"""
+const val CATEGORY_TOP_LEVEL_REGEX = """($SCHEME)://$AUTHORITY/($TOP_LEVEL_CATEGORIES)/?${'$'}"""
+
+const val CATEGORY_REGEX = """($SCHEME)://$AUTHORITY/($TOP_LEVEL_CATEGORIES)/(\d+)/?${'$'}"""
+
+const val SONG_ITEM_REGEX = """($SCHEME)://$AUTHORITY/($TOP_LEVEL_CATEGORIES)/(\d+)/songs/(\d+)/?${'$'}"""
 
 const val EXTRACT_CATEGORY_URI_FROM_SONG_URI_REGEX =
     """($SCHEME://$AUTHORITY/\w+/\d+)/songs/(\d+)/?${'$'}"""
@@ -34,23 +48,31 @@ const val EXTRACT_CATEGORY_URI_FROM_SONG_URI_REGEX =
  */
 
 const val SUB_CATEGORY_REGEX = """($SCHEME)://$AUTHORITY/(\w+)/(\d+)/(\w+)/(\d+)/?${'$'}"""
+const val SUB_CATEGORY_LISTING_REGEX = """($SCHEME)://$AUTHORITY/($TOP_LEVEL_CATEGORIES)/(\d+)/($TOP_LEVEL_CATEGORIES)/?${'$'}"""
 const val SUB_CATEGORY_SONG_ITEM_REGEX =
     """($SCHEME)://$AUTHORITY/(\w+)/(\d+)/(\w+)/(\d+)/songs/(\d+)/?${'$'}"""
 const val EXTRACT_SUB_CATEGORY_URI_FROM_SONG_ITEM_REGEX =
     """($SCHEME://$AUTHORITY/\w+/\d+/\w+/\d+)/songs/(\d+)/?${'$'}"""
+const val EXTRACT_CATEGORY_URI_FROM_SUB_CATEGORY_REGEX =  """($SCHEME://$AUTHORITY/\w+/\d+)/\w+/\d+/?${'$'}"""
 
 /**
  * Retrieve category name from music uri. Returns null if uri is not valid category uri
  */
 fun String.category(): String? {
+    val topLevelCategoryRegex = CATEGORY_TOP_LEVEL_REGEX.toRegex()
     val categoryRegex = CATEGORY_REGEX.toRegex()
     val subCategoryRegex = SUB_CATEGORY_REGEX.toRegex()
     val subCategoryItemRegex = SUB_CATEGORY_SONG_ITEM_REGEX.toRegex()
+    val subCategoryListingRegex = SUB_CATEGORY_LISTING_REGEX.toRegex()
     val itemRegex = SONG_ITEM_REGEX.toRegex()
 
     val rootRegex = ROOT_REGEX.toRegex()
 
     return when {
+        topLevelCategoryRegex matches this -> {
+            val matchResult = topLevelCategoryRegex.find(this)
+            matchResult?.groupValues?.get(2)
+        }
         categoryRegex matches this -> {
             val matchResult = categoryRegex.find(this)
             matchResult?.groupValues?.get(2)
@@ -61,6 +83,10 @@ fun String.category(): String? {
         }
         subCategoryRegex matches this -> {
             val matchResult = subCategoryRegex.find(this)
+            matchResult?.groupValues?.get(2)
+        }
+        subCategoryListingRegex matches this -> {
+            val matchResult = subCategoryListingRegex.find(this)
             matchResult?.groupValues?.get(2)
         }
 
@@ -86,6 +112,7 @@ fun String.categoryId(): Long? {
     val itemRegex = SONG_ITEM_REGEX.toRegex()
     val subCategoryRegex = SUB_CATEGORY_REGEX.toRegex()
     val subCategoryItemRegex = SUB_CATEGORY_SONG_ITEM_REGEX.toRegex()
+    val subCategoryListingRegex = SUB_CATEGORY_LISTING_REGEX.toRegex()
 
     return when {
         categoryRegex matches this -> {
@@ -105,6 +132,10 @@ fun String.categoryId(): Long? {
             val matchResult = subCategoryItemRegex.find(this)
             matchResult?.groupValues?.get(3)?.toLongOrNull()
         }
+        subCategoryListingRegex matches this -> {
+            val matchResult = subCategoryListingRegex.find(this)
+            matchResult?.groupValues?.get(3)?.toLongOrNull()
+        }
         else -> null
     }
 }
@@ -115,6 +146,7 @@ fun String.categoryId(): Long? {
 fun String.subCategory(): String? {
     val subCategoryRegex = SUB_CATEGORY_REGEX.toRegex()
     val subCategoryItemRegex = SUB_CATEGORY_SONG_ITEM_REGEX.toRegex()
+    val subCategoryListingRegex = SUB_CATEGORY_LISTING_REGEX.toRegex()
 
     return when {
         subCategoryRegex matches this -> {
@@ -124,6 +156,10 @@ fun String.subCategory(): String? {
 
         subCategoryItemRegex matches this -> {
             val matchResult = subCategoryItemRegex.find(this)
+            matchResult?.groupValues?.get(4)
+        }
+        subCategoryListingRegex matches this -> {
+            val matchResult = subCategoryListingRegex.find(this)
             matchResult?.groupValues?.get(4)
         }
         else -> null
@@ -181,6 +217,8 @@ fun String.isValidCategoryUri(): Boolean {
     return categoryRegex matches this
 }
 
+fun String.isValidTopLevelCategory() = CATEGORY_TOP_LEVEL_REGEX.toRegex() matches this
+
 /**
  * Checks that the uri is of the form - content://com.techbeloved.ogene/{category}/{categoryId}/{subcategory}/{subcategoryId}
  */
@@ -193,9 +231,7 @@ fun String.isValidSongUri(): Boolean {
     return (categoryRegex matches this) || (SUB_CATEGORY_SONG_ITEM_REGEX.toRegex() matches this)
 }
 
-fun String.isValidRootUri(): Boolean {
-    return ROOT_REGEX.toRegex() matches this
-}
+fun String.isValidRootUri(): Boolean = ROOT_REGEX.toRegex() matches this
 
 
 /**
@@ -225,8 +261,10 @@ fun String.appendSongId(songId: Long): String? {
 fun String.parentCategoryUri(): String? {
     val extractCategoryRegex = EXTRACT_CATEGORY_URI_FROM_SONG_URI_REGEX.toRegex()
     val extractSubCategoryRegex = EXTRACT_SUB_CATEGORY_URI_FROM_SONG_ITEM_REGEX.toRegex()
+    val extractCategoryFromSubCategoryRegex = EXTRACT_CATEGORY_URI_FROM_SUB_CATEGORY_REGEX.toRegex()
     val matchResult = when {
         extractCategoryRegex matches this -> extractCategoryRegex.find(this)
+        extractCategoryFromSubCategoryRegex matches this -> extractCategoryFromSubCategoryRegex.find(this)
         else -> extractSubCategoryRegex.find(this)
     }
     return matchResult?.groupValues?.get(1)
