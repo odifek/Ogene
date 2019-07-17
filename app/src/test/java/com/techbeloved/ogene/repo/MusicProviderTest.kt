@@ -2,7 +2,6 @@ package com.techbeloved.ogene.repo
 
 import android.support.v4.media.MediaBrowserCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.nhaarman.mockitokotlin2.whenever
 import com.techbeloved.ogene.repo.models.Song
 import io.reactivex.Observable
 import io.reactivex.observers.TestObserver
@@ -11,6 +10,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.ArgumentMatchers.anyLong
 import org.mockito.Mock
+import org.mockito.Mockito.`when`
 import org.mockito.MockitoAnnotations
 
 @RunWith(AndroidJUnit4::class)
@@ -51,7 +51,7 @@ class MusicProviderTest {
                 this.albumId = 12
             }
         )
-        whenever(songsRepository.getSongsForAlbum(anyLong())).thenReturn(Observable.just(songs))
+        `when`(songsRepository.getSongsForAlbum(anyLong())).thenReturn(Observable.just(songs))
         val parentId = "content://com.techbeloved.ogene/albums/12/"
         val mediaItemsObserver = TestObserver<List<MediaBrowserCompat.MediaItem>>()
 
