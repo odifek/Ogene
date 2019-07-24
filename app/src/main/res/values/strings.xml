@@ -2,4 +2,8 @@
     <string name="app_name">Ogene</string>
     <string name="pause">Pause</string>
     <string name="play">Play</string>
+    <string name="next">Next</string>
+    <string name="previous">Previous</string>
+    <string name="notification_channel">Ogene Now Playing</string>
+    <string name="notification_channel_description">Shows current playing item on Ogene Music Player</string>
 </resources>

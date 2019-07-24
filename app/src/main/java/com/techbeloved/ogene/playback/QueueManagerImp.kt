@@ -1,15 +1,19 @@
 package com.techbeloved.ogene.playback
 
+import android.content.ComponentName
+import android.content.Context
 import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
+import com.techbeloved.ogene.MusicService
 import com.techbeloved.ogene.musicbrowser.isValidSongUri
 import com.techbeloved.ogene.musicbrowser.parentCategoryUri
 import com.techbeloved.ogene.musicbrowser.songId
 import io.reactivex.Observable
 import timber.log.Timber
+import javax.inject.Inject
 
-class QueueManagerImp(private val mediaBrowser: MediaBrowserCompat) : QueueManager {
+class QueueManagerImp @Inject constructor(context: Context) : QueueManager {
     private val masterList: MutableList<MediaSessionCompat.QueueItem> = mutableListOf()
     private val currentList: MutableList<MediaSessionCompat.QueueItem> = mutableListOf()
     private val shuffledList: MutableList<MediaSessionCompat.QueueItem> = mutableListOf()
@@ -19,6 +23,40 @@ class QueueManagerImp(private val mediaBrowser: MediaBrowserCompat) : QueueManag
     private var queueManagerReady: Boolean = true
     private var currentMediaId: String? = null
     private var currentSongId: Long? = null
+
+    private var connected = false
+
+    private val connectionCallback: MediaBrowserCompat.ConnectionCallback =
+        object : MediaBrowserCompat.ConnectionCallback() {
+            override fun onConnected() {
+                super.onConnected()
+                connected = true
+                Timber.i("Connection success")
+            }
+
+            override fun onConnectionFailed() {
+                super.onConnectionFailed()
+                connected = false
+                Timber.i("Connection failed")
+            }
+
+            override fun onConnectionSuspended() {
+                super.onConnectionSuspended()
+                connected = false
+                Timber.i("Suspended")
+            }
+        }
+
+    private val mediaBrowser: MediaBrowserCompat
+
+    init {
+        mediaBrowser = MediaBrowserCompat(
+            context,
+            ComponentName(context, MusicService::class.java), connectionCallback, null
+        ).apply {
+            connect()
+        }
+    }
 
     @Synchronized
     override fun prepareFromMediaId(mediaId: String, @PlaybackStateCompat.ShuffleMode shuffleMode: Int): Observable<MutableList<MediaSessionCompat.QueueItem>> {
@@ -30,6 +68,7 @@ class QueueManagerImp(private val mediaBrowser: MediaBrowserCompat) : QueueManag
                     )
                 )
             } else if (!mediaBrowser.isConnected) {
+                mediaBrowser.connect()
                 emitter.tryOnError(
                     ServiceNotReadyException(
                         "Music service not ready or not yet connected!"
@@ -83,28 +122,25 @@ class QueueManagerImp(private val mediaBrowser: MediaBrowserCompat) : QueueManag
         }
     }
 
-    @Throws(EndOfQueueException::class)
     override fun nextItem(): MediaSessionCompat.QueueItem {
         return currentList.getOrElse(currentItemPosition.toInt() + 1) {
             throw EndOfQueueException("End of queue reached! or queue manager not ready")
         }
     }
 
-    @Throws(EndOfQueueException::class)
+
     override fun previousItem(): MediaSessionCompat.QueueItem {
         return currentList.getOrElse(currentItemPosition.toInt() - 1) {
             throw EndOfQueueException("Reached queue end! No more previous item")
         }
     }
 
-    @Throws(QueueManagerNotReadyException::class)
     override fun currentItem(): MediaSessionCompat.QueueItem {
         return currentList.getOrElse(currentItemPosition.toInt()) {
             throw QueueManagerNotReadyException("Queue is empty or current item not set")
         }
     }
 
-    @Throws(IllegalArgumentException::class)
     override fun skipToItem(index: Long): MediaSessionCompat.QueueItem {
         require(index >= 0 && index < currentList.size)
         currentItemPosition = index
