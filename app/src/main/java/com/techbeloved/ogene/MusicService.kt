@@ -43,14 +43,6 @@ class MusicService : MediaBrowserServiceCompat() {
     private var isForegroundService = false
 
 
-    private val connectionCallback: MediaBrowserCompat.ConnectionCallback =
-        object : MediaBrowserCompat.ConnectionCallback() {
-            override fun onConnected() {
-                super.onConnected()
-                Timber.i("Service connected")
-            }
-        }
-
     override fun onCreate() {
         super.onCreate()
         (application as OgeneApp).appComponent.inject(this)

@@ -1,11 +1,12 @@
 package com.techbeloved.ogene.playback
 
-import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.techbeloved.ogene.repo.MusicProvider
 import com.techbeloved.ogene.repo.extensions.mediaItems
 import com.techbeloved.ogene.repo.models.Song
+import io.reactivex.Single
 import io.reactivex.observers.TestObserver
 import org.hamcrest.CoreMatchers.`is`
 import org.hamcrest.CoreMatchers.not
@@ -14,7 +15,9 @@ import org.junit.Assert.assertThat
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.mockito.Mockito.*
+import org.mockito.ArgumentMatchers
+import org.mockito.Mockito.`when`
+import org.mockito.Mockito.mock
 
 @RunWith(AndroidJUnit4::class)
 class QueueManagerImpTest {
@@ -23,12 +26,12 @@ class QueueManagerImpTest {
 
     private lateinit var subject: QueueManagerImp
 
-    private lateinit var mediaBrowserMock: MediaBrowserCompat
+    private lateinit var musicProviderMock: MusicProvider
 
     @Before
     fun setUp() {
-        mediaBrowserMock = mock(MediaBrowserCompat::class.java)
-        subject = QueueManagerImp(mediaBrowserMock)
+        musicProviderMock = mock(MusicProvider::class.java)
+        subject = QueueManagerImp(musicProviderMock)
     }
 
     @After
@@ -36,18 +39,7 @@ class QueueManagerImpTest {
     }
 
     @Test
-    fun prepareFromMediaId_noConnection_throws_exception() {
-        noConnection()
-        val testObserver = TestObserver.create<List<MediaSessionCompat.QueueItem>>()
-        subject.prepareFromMediaId("anyMediaId", shuffleModeNone).subscribe(testObserver)
-
-        testObserver.assertSubscribed()
-        testObserver.assertError(ServiceNotReadyException::class.java)
-    }
-
-    @Test
     fun prepareFromMediaId_invalidSongId_throws_exception() {
-        successConnection()
         val testObserver = TestObserver.create<List<MediaSessionCompat.QueueItem>>()
         subject.prepareFromMediaId("invalidMediaId", shuffleModeNone).subscribe(testObserver)
 
@@ -59,7 +51,6 @@ class QueueManagerImpTest {
     @Test
     fun prepareFromMediaId_success_returnsSomeQueueItems() {
         val validMediaId = "content://com.techbeloved.ogene/albums/1/songs/1"
-        successConnection()
         successSubscription()
 
         val testObserver = TestObserver.create<List<MediaSessionCompat.QueueItem>>()
@@ -73,7 +64,6 @@ class QueueManagerImpTest {
     @Test
     fun checkThat_queue_is_ordered() {
         val validMediaId = "content://com.techbeloved.ogene/albums/1/songs/1"
-        successConnection()
         successSubscription()
         val testObserver = TestObserver.create<List<MediaSessionCompat.QueueItem>>()
         subject.prepareFromMediaId(validMediaId, shuffleModeNone).subscribe(testObserver)
@@ -90,7 +80,6 @@ class QueueManagerImpTest {
     @Test
     fun prepareFromMediaId_success_shouldSetTheCurrentItem() {
         val validMediaId = "content://com.techbeloved.ogene/albums/1/songs/1"
-        successConnection()
         successSubscription()
 
         subject.prepareFromMediaId(validMediaId, shuffleModeNone).subscribe()
@@ -104,7 +93,6 @@ class QueueManagerImpTest {
     fun skipToItem_success_shouldSetTheCurrentItemToTheOneWithTheIdSpecified() {
         // Setup
         val validMediaId = "content://com.techbeloved.ogene/albums/1/songs/1"
-        successConnection()
         successSubscription()
         subject.prepareFromMediaId(validMediaId, shuffleModeNone).subscribe()
 
@@ -166,40 +154,20 @@ class QueueManagerImpTest {
         subject.skipToPrevious()
     }
 
-    private fun successConnection() {
-        `when`(mediaBrowserMock.isConnected).thenReturn(true)
-    }
-
-    private fun noConnection() {
-        `when`(mediaBrowserMock.isConnected).thenReturn(false)
-    }
-
     /**
      * Capture the callback and invoke onChildrenLoaded or success method with sample data
      */
     private fun successSubscription() {
-        doAnswer { invocation ->
-            val mediaId: String = invocation.getArgument(0)
-            val subscriptionCallback: MediaBrowserCompat.SubscriptionCallback =
-                invocation.getArgument(1)
-            subscriptionCallback.onChildrenLoaded(mediaId, sampleSongs.mediaItems(mediaId))
-            null
-
-        }.`when`(mediaBrowserMock).subscribe(anyString(), any())
+        val parentId = "content://com.techbeloved.ogene/albums/1"
+        `when`(musicProviderMock.getMediaItemsForMediaId(ArgumentMatchers.anyString(), ArgumentMatchers.anyInt(), ArgumentMatchers.anyInt())).thenReturn(
+            Single.just(sampleSongs.mediaItems(parentId))
+        )
     }
 
     private fun prepareQueue() {
         val validMediaId = "content://com.techbeloved.ogene/albums/1/songs/1"
-        successConnection()
         successSubscription()
         subject.prepareFromMediaId(validMediaId, shuffleModeNone).subscribe()
-    }
-
-    private fun sampleQueueItems(parentId: String): List<MediaSessionCompat.QueueItem> {
-        return sampleSongs.mediaItems(parentId)
-            .mapIndexed { index, mediaItem ->
-                MediaSessionCompat.QueueItem(mediaItem.description, index.toLong())
-            }
     }
 
     private val sampleSongs: List<Song> =

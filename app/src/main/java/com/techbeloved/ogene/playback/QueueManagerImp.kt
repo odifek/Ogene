@@ -1,19 +1,16 @@
 package com.techbeloved.ogene.playback
 
-import android.content.ComponentName
-import android.content.Context
 import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
-import com.techbeloved.ogene.MusicService
 import com.techbeloved.ogene.musicbrowser.isValidSongUri
 import com.techbeloved.ogene.musicbrowser.parentCategoryUri
 import com.techbeloved.ogene.musicbrowser.songId
+import com.techbeloved.ogene.repo.MusicProvider
 import io.reactivex.Observable
-import timber.log.Timber
 import javax.inject.Inject
 
-class QueueManagerImp @Inject constructor(context: Context) : QueueManager {
+class QueueManagerImp @Inject constructor(private val musicProvider: MusicProvider) : QueueManager {
     private val masterList: MutableList<MediaSessionCompat.QueueItem> = mutableListOf()
     private val currentList: MutableList<MediaSessionCompat.QueueItem> = mutableListOf()
     private val shuffledList: MutableList<MediaSessionCompat.QueueItem> = mutableListOf()
@@ -24,103 +21,59 @@ class QueueManagerImp @Inject constructor(context: Context) : QueueManager {
     private var currentMediaId: String? = null
     private var currentSongId: Long? = null
 
-    private var connected = false
-
-    private val connectionCallback: MediaBrowserCompat.ConnectionCallback =
-        object : MediaBrowserCompat.ConnectionCallback() {
-            override fun onConnected() {
-                super.onConnected()
-                connected = true
-                Timber.i("Connection success")
-            }
-
-            override fun onConnectionFailed() {
-                super.onConnectionFailed()
-                connected = false
-                Timber.i("Connection failed")
-            }
-
-            override fun onConnectionSuspended() {
-                super.onConnectionSuspended()
-                connected = false
-                Timber.i("Suspended")
-            }
-        }
-
-    private val mediaBrowser: MediaBrowserCompat
-
-    init {
-        mediaBrowser = MediaBrowserCompat(
-            context,
-            ComponentName(context, MusicService::class.java), connectionCallback, null
-        ).apply {
-            connect()
-        }
-    }
-
     @Synchronized
-    override fun prepareFromMediaId(mediaId: String, @PlaybackStateCompat.ShuffleMode shuffleMode: Int): Observable<MutableList<MediaSessionCompat.QueueItem>> {
-        return Observable.create { emitter ->
-            if (!queueManagerReady) {
-                emitter.tryOnError(
-                    QueueManagerNotReadyException(
-                        "Queue Manager is not ready to handle this request"
-                    )
+    override fun prepareFromMediaId(mediaId: String, @PlaybackStateCompat.ShuffleMode shuffleMode: Int):
+            Observable<MutableList<MediaSessionCompat.QueueItem>> {
+
+        if (!queueManagerReady) {
+            return Observable.error(
+                QueueManagerNotReadyException(
+                    "Queue Manager is not ready to handle this request"
                 )
-            } else if (!mediaBrowser.isConnected) {
-                mediaBrowser.connect()
-                emitter.tryOnError(
-                    ServiceNotReadyException(
-                        "Music service not ready or not yet connected!"
-                    )
+            )
+        } else if (!mediaId.isValidSongUri()) {
+            return Observable.error(
+                InvalidMediaIdException(
+                    "Supplied media id, $mediaId, is invalid or not recognized!"
                 )
-            } else if (!mediaId.isValidSongUri()) {
-                emitter.tryOnError(
-                    InvalidMediaIdException(
-                        "Supplied media id, $mediaId, is invalid or not recognized!"
-                    )
+            )
+        } else {
+            currentMediaId?.let {}
+            currentMediaId = mediaId.parentCategoryUri()
+            if (currentMediaId == null) {
+                throw InvalidMediaIdException(
+                    "Supplied media id, $mediaId, is invalid or not recognized!"
                 )
-            } else {
-                currentMediaId?.let { mediaBrowser.unsubscribe(it) }
-                currentMediaId = mediaId.parentCategoryUri()
-                currentSongId = mediaId.songId()
-
-                currentMediaId?.let {
-                    mediaBrowser.subscribe(it, object : MediaBrowserCompat.SubscriptionCallback() {
-                        override fun onChildrenLoaded(
-                            parentId: String,
-                            children: MutableList<MediaBrowserCompat.MediaItem>
-                        ) {
-                            masterList.clear()
-                            masterList.addAll(children.toQueueItems())
-
-                            shuffledList.clear()
-                            shuffledList.addAll(masterList.shuffled())
-
-                            currentList.clear()
-                            when (shuffleMode) {
-                                PlaybackStateCompat.SHUFFLE_MODE_NONE -> currentList.addAll(
-                                    masterList
-                                )
-                                else -> currentList.addAll(shuffledList)
-                            }
-                            currentItemPosition =
-                                currentList.indexOfFirst { item -> item.description.mediaId == mediaId }
-                                    .toLong()
-                            emitter.onNext(currentList)
-                        }
-
-                        override fun onError(parentId: String) {
-                            Timber.w("Error subscribing to mediaId, %s", parentId)
-                            emitter.tryOnError(InvalidMediaIdException("Error subscribing to mediaId, $parentId"))
-                        }
-
-                    })
-                }
             }
-            emitter.setCancellable { mediaBrowser.unsubscribe(mediaId) }
+            currentSongId = mediaId.songId()
+            return musicProvider.getMediaItemsForMediaId(currentMediaId!!)
+                .map { mediaItems ->
+
+
+                    val children = mediaItems.toQueueItems()
+                    masterList.clear()
+                    masterList.addAll(children)
+
+                    shuffledList.clear()
+                    shuffledList.addAll(masterList.shuffled())
+
+                    currentList.clear()
+                    when (shuffleMode) {
+                        PlaybackStateCompat.SHUFFLE_MODE_NONE -> currentList.addAll(
+                            masterList
+                        )
+                        else -> currentList.addAll(shuffledList)
+                    }
+                    currentItemPosition =
+                        currentList.indexOfFirst { item -> item.description.mediaId == mediaId }
+                            .toLong()
+
+                    children.toMutableList()
+
+                }.toObservable()
         }
     }
+
 
     override fun nextItem(): MediaSessionCompat.QueueItem {
         return currentList.getOrElse(currentItemPosition.toInt() + 1) {
