@@ -117,9 +117,11 @@ class QueueManagerImp @Inject constructor(private val musicProvider: MusicProvid
  * Converts a list of [MediaBrowserCompat.MediaItem]s to [MediaSessionCompat.QueueItem]s
  */
 private fun List<MediaBrowserCompat.MediaItem>.toQueueItems(startIndex: Int = 0): List<MediaSessionCompat.QueueItem> {
-    return this.mapIndexed { index, mediaItem ->
-        MediaSessionCompat.QueueItem(mediaItem.description, startIndex + index.toLong())
-    }
+    return this
+        .filter { mediaItem -> mediaItem.isPlayable }
+        .mapIndexed { index, mediaItem ->
+            MediaSessionCompat.QueueItem(mediaItem.description, startIndex + index.toLong())
+        }
 }
 
 
