@@ -4,6 +4,7 @@ import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaDescriptionCompat
 import com.techbeloved.ogene.musicbrowser.*
 import com.techbeloved.ogene.repo.extensions.mediaItems
+import com.techbeloved.ogene.repo.models.NowPlayingItem
 import io.reactivex.Single
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -13,7 +14,8 @@ class MusicProvider @Inject constructor(
     private val songsRepository: SongsRepository,
     private val albumsRepository: AlbumsRepository,
     private val artistsRepository: ArtistsRepository,
-    private val genresRepository: GenresRepository
+    private val genresRepository: GenresRepository,
+    private val sharedPreferencesRepo: SharedPreferencesRepo
 ) {
     fun getMediaItemsForMediaId(
         parentId: String,
@@ -37,7 +39,10 @@ class MusicProvider @Inject constructor(
                 when (parentId.category()) {
                     CATEGORY_ALBUMS -> albumsRepository.getAlbums(offset, limit).firstOrError()
                         .map { it.mediaItems(parentId) }
-                    CATEGORY_ARTISTS -> artistsRepository.getAllArtists(offset, limit).firstOrError()
+                    CATEGORY_ARTISTS -> artistsRepository.getAllArtists(
+                        offset,
+                        limit
+                    ).firstOrError()
                         .map { it.mediaItems(parentId) }
                     CATEGORY_GENRES -> genresRepository.getAllGenres(offset, limit).firstOrError()
                         .map { it.mediaItems(parentId) }
@@ -51,7 +56,11 @@ class MusicProvider @Inject constructor(
                 val category = parentId.category()
                 val categoryId = parentId.categoryId() ?: 0
                 when (category) {
-                    CATEGORY_ALBUMS -> songsRepository.getSongsForAlbum(categoryId, offset, limit).firstOrError()
+                    CATEGORY_ALBUMS -> songsRepository.getSongsForAlbum(
+                        categoryId,
+                        offset,
+                        limit
+                    ).firstOrError()
                         .map { it.mediaItems(parentId) }
                     CATEGORY_ALL_SONGS -> songsRepository.getAllSongs(offset, limit).firstOrError()
                         .map { it.mediaItems(parentId) }
@@ -61,7 +70,11 @@ class MusicProvider @Inject constructor(
                             albumsRepository.getAlbumsForArtist(categoryId)
                                 .map { albums -> songItems.plus(albums.mediaItems("$parentId/$CATEGORY_ALBUMS")) }
                         }.firstOrError()
-                    CATEGORY_GENRES -> songsRepository.getSongsForGenre(categoryId, offset, limit).firstOrError()
+                    CATEGORY_GENRES -> songsRepository.getSongsForGenre(
+                        categoryId,
+                        offset,
+                        limit
+                    ).firstOrError()
                         .map { it.mediaItems(parentId) }
                     else -> Single.error(Throwable("invalid or not implemented category: $category"))
                 }
@@ -74,7 +87,11 @@ class MusicProvider @Inject constructor(
                 when (category) {
                     CATEGORY_ARTISTS -> {
                         when (subCategory) {
-                            CATEGORY_ALBUMS -> songsRepository.getSongsForAlbum(subCategoryId, offset, limit)
+                            CATEGORY_ALBUMS -> songsRepository.getSongsForAlbum(
+                                subCategoryId,
+                                offset,
+                                limit
+                            )
                                 .firstOrError()
                                 .map { it.mediaItems(parentId) }
                             else -> Single.error(Throwable("Category invalid or not implemented"))
@@ -87,6 +104,10 @@ class MusicProvider @Inject constructor(
             else -> return Single.error(Throwable("Category invalid or not implemented! $parentId"))
         }
 
+    }
+
+    fun saveQueueItems(songIds: List<String>) {
+        sharedPreferencesRepo.saveQueue(songIds)
     }
 
     private fun rootMediaItems(): List<MediaBrowserCompat.MediaItem> {
@@ -123,5 +144,24 @@ class MusicProvider @Inject constructor(
                 MediaBrowserCompat.MediaItem.FLAG_BROWSABLE
             )
         )
+    }
+
+    /**
+     * Get saved queue items, adding the category as all_songs (for simplicity. Could use another category name such as NOW_PLAYING)
+     */
+    fun getSavedQueueItems(): Single<List<MediaBrowserCompat.MediaItem>> {
+        return sharedPreferencesRepo.getSavedQueueItems()
+            .flatMapObservable { savedIds ->
+                songsRepository.getSongsForIds(savedIds)
+            }.map { it.mediaItems(buildCategoryUri(CATEGORY_ALL_SONGS, 0)) }
+            .firstOrError()
+    }
+
+    fun getCurrentItem(): Single<NowPlayingItem> {
+        return sharedPreferencesRepo.currentItemId()
+    }
+
+    fun saveCurrentItem(nowPlayingItem: NowPlayingItem) {
+        sharedPreferencesRepo.saveCurrentItem(nowPlayingItem)
     }
 }

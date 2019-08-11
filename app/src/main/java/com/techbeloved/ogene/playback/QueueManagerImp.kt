@@ -7,7 +7,9 @@ import com.techbeloved.ogene.musicbrowser.isValidSongUri
 import com.techbeloved.ogene.musicbrowser.parentCategoryUri
 import com.techbeloved.ogene.musicbrowser.songId
 import com.techbeloved.ogene.repo.MusicProvider
+import com.techbeloved.ogene.repo.models.NowPlayingItem
 import io.reactivex.Observable
+import io.reactivex.Single
 import javax.inject.Inject
 
 class QueueManagerImp @Inject constructor(private val musicProvider: MusicProvider) : QueueManager {
@@ -68,6 +70,12 @@ class QueueManagerImp @Inject constructor(private val musicProvider: MusicProvid
                         currentList.indexOfFirst { item -> item.description.mediaId == mediaId }
                             .toLong()
 
+                    // Save the queue
+                    musicProvider.saveQueueItems(
+                        currentList.map { item -> item.description.mediaId?.songId()!!.toString() }
+
+                    )
+
                     children.toMutableList()
 
                 }.toObservable()
@@ -110,6 +118,36 @@ class QueueManagerImp @Inject constructor(private val musicProvider: MusicProvid
         val previousItem = previousItem()
         currentItemPosition--
         return previousItem
+    }
+
+    override fun restoreSavedQueue(): Single<SavedQueue> {
+        return musicProvider.getSavedQueueItems().flatMap { savedItems ->
+            musicProvider.getCurrentItem()
+                .map { item -> SavedQueue(savedItems.toQueueItems(), item) }
+                .map { savedQueue ->
+
+                    // Current list should be populated as is
+                    currentList.addAll(savedQueue.queueItems)
+
+                    masterList.clear()
+                    masterList.addAll(savedQueue.queueItems)
+
+                    shuffledList.clear()
+                    shuffledList.addAll(masterList.shuffled())
+
+                    if (savedQueue.currentItem.id > 0 && currentList.isNotEmpty()) {
+                        currentItemPosition =
+                            currentList.indexOfFirst { item -> item.description.mediaId?.songId() == savedQueue.currentItem.id }
+                                .toLong()
+                    }
+
+                    savedQueue
+                }
+        }
+    }
+
+    override fun saveCurrentItem(nowPlayingItem: NowPlayingItem) {
+        musicProvider.saveCurrentItem(nowPlayingItem)
     }
 }
 

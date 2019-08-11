@@ -15,4 +15,6 @@ interface SongsRepository {
 
     fun getAllSongs(offset: Int = 0, limit: Int = -1, sortBy: Song.SortBy = Song.SortBy.ALBUM): Observable<List<Song>>
 
+    fun getSongsForIds(songIds: List<String>): Observable<List<Song>>
+
 }

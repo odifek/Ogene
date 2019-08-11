@@ -65,4 +65,13 @@ class SongsRepositoryImp @Inject constructor(
                 cursor.mapToList(offset, limit) { Song(it) }
             }
     }
+
+    override fun getSongsForIds(songIds: List<String>): Observable<List<Song>> {
+        val query = Song.songsByIdsQuery(songIds)
+        return storeContentResolver.createQuery(query)
+            .map { mediaQuery ->
+                val cursor = mediaQuery.run()
+                cursor.mapToList { Song(it) }
+            }
+    }
 }

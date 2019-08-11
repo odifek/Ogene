@@ -19,10 +19,11 @@ import android.support.v4.media.session.PlaybackStateCompat.*
 import androidx.core.app.NotificationManagerCompat
 import com.jakewharton.rxrelay2.PublishRelay
 import com.techbeloved.ogene.MusicService
+import com.techbeloved.ogene.musicbrowser.songId
+import com.techbeloved.ogene.repo.models.NowPlayingItem
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.functions.Consumer
 import timber.log.Timber
-import java.lang.IllegalArgumentException
 import java.lang.ref.WeakReference
 import javax.inject.Inject
 
@@ -38,7 +39,7 @@ class PlaybackManager @Inject constructor(
 ) {
 
     private var currentShuffleMode: Int = SHUFFLE_MODE_NONE
-    private var mediaSessionCallbacks: MediaSessionCompat.Callback
+    private var mediaSessionCallbacks: MediaSessionCallback
 
     private lateinit var mediaSession: MediaSessionCompat
 
@@ -66,7 +67,6 @@ class PlaybackManager @Inject constructor(
 
     init {
         mediaSessionCallbacks = MediaSessionCallback()
-
     }
 
     /**
@@ -79,7 +79,7 @@ class PlaybackManager @Inject constructor(
         mediaController = MediaControllerCompat(context, mediaSession).also {
             it.registerCallback(mediaControllerCallback)
         }
-
+        mediaSessionCallbacks.restorePlaybackState()
     }
 
     /**
@@ -186,7 +186,7 @@ class PlaybackManager @Inject constructor(
         /**
          * Process queue items as they
          */
-        private val queueSubject = PublishRelay.create<MediaSessionCompat.QueueItem>()
+        private val queueSubject = PublishRelay.create<PlayRequest>()
 
         /**
          * Receives and processes playback status events from the media player implementation
@@ -202,6 +202,13 @@ class PlaybackManager @Inject constructor(
                         putLong(EXTRA_MEDIA_POSITION, status.position.toLong())
                     }
                     setPlaybackState(STATE_PLAYING, status.position.toLong(), extras = extras)
+
+                    // Save current playing item state
+                    val currentSongId = queueManager.currentItem().description.mediaId?.songId()
+                    if (currentSongId != null) {
+                        val nowPlayingItem = NowPlayingItem(currentSongId, status.position.toLong(), status.duration.toLong())
+                        queueManager.saveCurrentItem(nowPlayingItem)
+                    }
                 }
                 is PlaybackStatus.Paused -> {
                     val extras = Bundle().apply {
@@ -209,6 +216,13 @@ class PlaybackManager @Inject constructor(
                         putLong(EXTRA_MEDIA_POSITION, status.position.toLong())
                     }
                     setPlaybackState(STATE_PAUSED, status.position.toLong(), extras)
+
+                    // Save current playing item state
+                    val currentSongId = queueManager.currentItem().description.mediaId?.songId()
+                    if (currentSongId != null) {
+                        val nowPlayingItem = NowPlayingItem(currentSongId, status.position.toLong(), status.duration.toLong())
+                        queueManager.saveCurrentItem(nowPlayingItem)
+                    }
                 }
                 is PlaybackStatus.Ducked -> {
                 }
@@ -237,15 +251,15 @@ class PlaybackManager @Inject constructor(
                 mediaSession.setQueueTitle("Currently Playing")
                 queueManager.currentItem()
             }
-                .subscribe({ item -> queueSubject.accept(item) }, { Timber.w(it) })
+                .subscribe({ item -> queueSubject.accept(PlayRequest(item, null,true)) }, { Timber.w(it) })
                 .let { disposables.add(it) }
 
             playback.playbackStatus()
                 .subscribe(playbackConsumer, errorConsumer)
                 .let { disposables.add(it) }
 
-            queueSubject.switchMap { queueItem ->
-                playback.playWhenReady(queueItem)
+            queueSubject.switchMap { request ->
+                playback.playWhenReady(request)
             }
                 .subscribe(playbackConsumer, errorConsumer)
                 .let { disposables.add(it) }
@@ -254,7 +268,7 @@ class PlaybackManager @Inject constructor(
 
         override fun onSkipToPrevious() {
             try {
-                queueSubject.accept(queueManager.skipToPrevious())
+                queueSubject.accept(PlayRequest(queueManager.skipToPrevious(), null, true))
             } catch (e: EndOfQueueException) {
                 Timber.w(e, "Cannot skip previous!")
             }
@@ -278,7 +292,7 @@ class PlaybackManager @Inject constructor(
 
         override fun onSkipToQueueItem(id: Long) {
             try {
-                queueSubject.accept(queueManager.skipToItem(id))
+                queueSubject.accept(PlayRequest(queueManager.skipToItem(id), null, true))
             } catch (e: IllegalArgumentException) {
                 Timber.w(e, "Invalid queue id, %s", id)
             }
@@ -286,7 +300,7 @@ class PlaybackManager @Inject constructor(
 
         override fun onSkipToNext() {
             try {
-                queueSubject.accept(queueManager.skipToNextItem())
+                queueSubject.accept(PlayRequest(queueManager.skipToNextItem(), null, true))
             } catch (e: EndOfQueueException) {
                 Timber.w(e, "Cannot skip previous!")
             }
@@ -344,6 +358,24 @@ class PlaybackManager @Inject constructor(
             }
 
             return result == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        }
+
+        /**
+         * Restores any previously saved queue and playback state
+         */
+        fun restorePlaybackState() {
+            queueManager.restoreSavedQueue()
+                .subscribe({savedQueue ->
+                    Timber.i("SavedQueue: %s", savedQueue)
+                    mediaSession.setQueue(savedQueue.queueItems)
+                    mediaSession.setQueueTitle("Currently Playing")
+                    try {
+                        queueSubject.accept(PlayRequest(queueManager.currentItem(), savedQueue.currentItem, false))
+                    } catch (e: Exception) {
+                        Timber.w(e, "Error or no current saved item")
+                    }
+                }, { Timber.w(it)})
+                .let { disposables.add(it) }
         }
 
         private val audioFocusChangeListener: AudioManager.OnAudioFocusChangeListener =

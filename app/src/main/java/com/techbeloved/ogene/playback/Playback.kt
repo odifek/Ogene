@@ -1,7 +1,6 @@
 package com.techbeloved.ogene.playback
 
 import android.support.v4.media.MediaMetadataCompat
-import android.support.v4.media.session.MediaSessionCompat
 import io.reactivex.Observable
 
 interface Playback {
@@ -10,7 +9,7 @@ interface Playback {
     /**
      * The player implementation will take care of preparing and starting the playback whenever it is ready
      */
-    fun playWhenReady(queueItem: MediaSessionCompat.QueueItem): Observable<PlaybackStatus>
+    fun playWhenReady(request: PlayRequest): Observable<PlaybackStatus>
 
     fun start(checkPlayerStatus: Boolean = true)
 

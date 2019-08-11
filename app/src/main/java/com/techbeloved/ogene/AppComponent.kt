@@ -2,6 +2,7 @@ package com.techbeloved.ogene
 
 import android.content.ComponentName
 import android.content.Context
+import com.f2prateek.rx.preferences2.RxSharedPreferences
 import com.techbeloved.ogene.musicbrowser.ViewModelModule
 import com.techbeloved.ogene.playback.PlaybackModule
 import com.techbeloved.ogene.repo.SongsRepositoryModule
@@ -26,5 +27,8 @@ interface AppComponent {
 
         @BindsInstance
         fun serviceComponent(componentName: ComponentName): Builder
+
+        @BindsInstance
+        fun rxPreferences(rxSharedPreferences: RxSharedPreferences): Builder
     }
 }

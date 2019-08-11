@@ -3,7 +3,6 @@ package com.techbeloved.ogene.playback
 import android.content.Context
 import android.media.AudioManager
 import android.media.MediaPlayer
-import android.net.Uri
 import android.support.v4.media.MediaMetadataCompat
 import android.support.v4.media.session.MediaSessionCompat
 import com.jakewharton.rxrelay2.PublishRelay
@@ -39,16 +38,17 @@ class MediaPlayerAdapter @Inject constructor(private val context: Context) : Pla
         TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
     }
 
-    override fun playWhenReady(queueItem: MediaSessionCompat.QueueItem): Observable<PlaybackStatus> {
+    override fun playWhenReady(request: PlayRequest): Observable<PlaybackStatus> {
         return Observable.create { emitter ->
 
             emitter.setCancellable { releaseCurrent() }
 
             playerReady = false
             initializeCurrentPlayer()
-            Timber.i("QueueItem, %s", queueItem.queueId)
+            Timber.i("QueueItem, %s", request.item.queueId)
             val mediaUri =
-                queueItem.description.mediaUri ?: throw Throwable("Media Uri should not be null!")
+                request.item.description.mediaUri
+                    ?: throw Throwable("Media Uri should not be null!")
             if (mediaUri.scheme?.startsWith("content") == true) {
                 try {
                     currentPlayer?.setDataSource(context, mediaUri)
@@ -88,8 +88,13 @@ class MediaPlayerAdapter @Inject constructor(private val context: Context) : Pla
             if (!emitter.isDisposed) {
                 try {
                     currentPlayer?.prepare()
-                    emitter.onNext(PlaybackStatus.Started(queueItem.toMetadata, duration()))
-                    start(false)
+                    request.status?.let {
+                        currentPlayer?.seekTo(it.playbackPos.toInt())
+                    }
+                    emitter.onNext(PlaybackStatus.Started(request.item.toMetadata, duration()))
+                    if (request.playWhenReady) {
+                        start(false)
+                    }
                     playerReady = true
                 } catch (e: IllegalStateException) {
                     emitter.tryOnError(Throwable("Media player not ready!", e))

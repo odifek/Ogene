@@ -130,6 +130,18 @@ class Song() {
                 .build()
         }
 
+        fun songsByIdsQuery(songIds: List<String>): Query {
+            val selectionByIds = "${MediaStore.Audio.Media._ID} IN (${getSelectionPlaceHolders(songIds)})"
+            val finalSelection = "$selection AND $selectionByIds"
+            return Query.Builder()
+                .uri(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI)
+                .projection(null)
+                .selection(finalSelection)
+                .args(songIds)
+                .sort(null)
+                .build()
+        }
+
         fun songsInAlbumQuery(
             albumId: Long,
             sortBy: SortBy
@@ -177,6 +189,18 @@ class Song() {
                 SortBy.TRACK -> MediaStore.Audio.Media.TRACK + " ASC"
 
             }
+        }
+
+        /**
+         * Generates selection placeholders for SQL query given a list of ids
+         */
+        private fun getSelectionPlaceHolders(ids: List<String>): String {
+            var placeholders = ""
+            for (id in ids) {
+                placeholders = placeholders.plus("?,")
+            }
+            placeholders = placeholders.removeSuffix(",")
+            return placeholders
         }
     }
 

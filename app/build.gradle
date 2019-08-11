@@ -102,4 +102,10 @@ dependencies {
     // Timber
     implementation 'com.jakewharton.timber:timber:4.7.1'
 
+    // Rx Shared preferences
+    implementation 'com.f2prateek.rx.preferences2:rx-preferences:2.0.0'
+
+    // Gson
+    implementation 'com.google.code.gson:gson:2.8.5'
+
 }
