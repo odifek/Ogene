@@ -3,8 +3,8 @@ package com.techbeloved.ogene.playback
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
 import com.techbeloved.ogene.repo.models.NowPlayingItem
+import io.reactivex.Maybe
 import io.reactivex.Observable
-import io.reactivex.Single
 
 interface QueueManager {
     /**
@@ -56,7 +56,7 @@ interface QueueManager {
      * Song items on the queue are saved as ids and the current playback position is also saved.
      * The player is configured using these data so that playback could be resumed with no hassle
      */
-    fun restoreSavedQueue(): Single<SavedQueue>
+    fun restoreSavedQueue(): Maybe<SavedQueue>
     /**
      * Saves the current playing item
      */

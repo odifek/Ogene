@@ -8,8 +8,8 @@ import com.techbeloved.ogene.musicbrowser.parentCategoryUri
 import com.techbeloved.ogene.musicbrowser.songId
 import com.techbeloved.ogene.repo.MusicProvider
 import com.techbeloved.ogene.repo.models.NowPlayingItem
+import io.reactivex.Maybe
 import io.reactivex.Observable
-import io.reactivex.Single
 import javax.inject.Inject
 
 class QueueManagerImp @Inject constructor(private val musicProvider: MusicProvider) : QueueManager {
@@ -20,7 +20,7 @@ class QueueManagerImp @Inject constructor(private val musicProvider: MusicProvid
     private var currentItemPosition: Long = 0
 
     private var queueManagerReady: Boolean = true
-    private var currentMediaId: String? = null
+    private var currentBrowsingMediaId: String? = null
     private var currentSongId: Long? = null
 
     @Synchronized
@@ -40,15 +40,14 @@ class QueueManagerImp @Inject constructor(private val musicProvider: MusicProvid
                 )
             )
         } else {
-            currentMediaId?.let {}
-            currentMediaId = mediaId.parentCategoryUri()
-            if (currentMediaId == null) {
-                throw InvalidMediaIdException(
+            currentBrowsingMediaId = mediaId.parentCategoryUri()
+            if (currentBrowsingMediaId == null) {
+                return Observable.error(InvalidMediaIdException(
                     "Supplied media id, $mediaId, is invalid or not recognized!"
-                )
+                ))
             }
             currentSongId = mediaId.songId()
-            return musicProvider.getMediaItemsForMediaId(currentMediaId!!)
+            return musicProvider.getMediaItemsForMediaId(currentBrowsingMediaId!!)
                 .map { mediaItems ->
 
 
@@ -120,30 +119,33 @@ class QueueManagerImp @Inject constructor(private val musicProvider: MusicProvid
         return previousItem
     }
 
-    override fun restoreSavedQueue(): Single<SavedQueue> {
-        return musicProvider.getSavedQueueItems().flatMap { savedItems ->
-            musicProvider.getCurrentItem()
-                .map { item -> SavedQueue(savedItems.toQueueItems(), item) }
-                .map { savedQueue ->
+    override fun restoreSavedQueue(): Maybe<SavedQueue> {
+        return musicProvider.getSavedQueueItems()
+            .filter { items -> items.isNotEmpty() } // Only continue if there is something in the list
+            .flatMap { savedItems ->
+                musicProvider.getCurrentItem()
+                    .filter { item -> item.id > 0 }
+                    .map { item -> SavedQueue(savedItems.toQueueItems(), item) }
+                    .map { savedQueue ->
 
-                    // Current list should be populated as is
-                    currentList.addAll(savedQueue.queueItems)
+                        // Current list should be populated as is
+                        currentList.addAll(savedQueue.queueItems)
 
-                    masterList.clear()
-                    masterList.addAll(savedQueue.queueItems)
+                        masterList.clear()
+                        masterList.addAll(savedQueue.queueItems)
 
-                    shuffledList.clear()
-                    shuffledList.addAll(masterList.shuffled())
+                        shuffledList.clear()
+                        shuffledList.addAll(masterList.shuffled())
 
-                    if (savedQueue.currentItem.id > 0 && currentList.isNotEmpty()) {
-                        currentItemPosition =
-                            currentList.indexOfFirst { item -> item.description.mediaId?.songId() == savedQueue.currentItem.id }
-                                .toLong()
+                        if (savedQueue.currentItem.id > 0 && currentList.isNotEmpty()) {
+                            currentItemPosition =
+                                currentList.indexOfFirst { item -> item.description.mediaId?.songId() == savedQueue.currentItem.id }
+                                    .toLong()
+                        }
+
+                        savedQueue
                     }
-
-                    savedQueue
-                }
-        }
+            }
     }
 
     override fun saveCurrentItem(nowPlayingItem: NowPlayingItem) {

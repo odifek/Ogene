@@ -370,7 +370,8 @@ class PlaybackManager @Inject constructor(
                     mediaSession.setQueue(savedQueue.queueItems)
                     mediaSession.setQueueTitle("Currently Playing")
                     try {
-                        queueSubject.accept(PlayRequest(queueManager.currentItem(), savedQueue.currentItem, false))
+                        val currentItem = queueManager.currentItem()
+                        queueSubject.accept(PlayRequest(currentItem, savedQueue.currentItem, false))
                     } catch (e: Exception) {
                         Timber.w(e, "Error or no current saved item")
                     }
