@@ -29,7 +29,11 @@ import javax.inject.Inject
 
 /**
  * PlaybackManager is the central class that handles all media player related requests.
- * [setMediaSession] must be called with active [MediaSessionCompat] before any thing happens here
+ * [setMediaSession] must be called with active [MediaSessionCompat] before any thing happens here from the Service onCreate.
+ *
+ * Also a [WeakReference] of [MusicService] will be set using [setService]. This gives us reference to the service with which we can enable foreground and put up notification.
+ *
+ *
  */
 class PlaybackManager @Inject constructor(
     private val context: Context,
@@ -42,8 +46,6 @@ class PlaybackManager @Inject constructor(
     private var mediaSessionCallbacks: MediaSessionCallback
 
     private lateinit var mediaSession: MediaSessionCompat
-
-    private lateinit var mediaController: MediaControllerCompat
 
     private lateinit var serviceRef: WeakReference<MusicService>
 
@@ -61,10 +63,6 @@ class PlaybackManager @Inject constructor(
 
     private val disposables = CompositeDisposable()
 
-    private val mediaControllerCallback: MediaControllerCallback by lazy {
-        MediaControllerCallback()
-    }
-
     init {
         mediaSessionCallbacks = MediaSessionCallback()
     }
@@ -76,19 +74,19 @@ class PlaybackManager @Inject constructor(
         this.mediaSession = mediaSession
         this.mediaSession.setCallback(mediaSessionCallbacks)
 
-        mediaController = MediaControllerCompat(context, mediaSession).also {
-            it.registerCallback(mediaControllerCallback)
-        }
         mediaSessionCallbacks.restorePlaybackState()
     }
 
     /**
-     *
+     * Use to set the reference of the [MusicService] as a weak reference. We don't want to hold a strong reference here
      */
     fun setService(service: WeakReference<MusicService>) {
         serviceRef = service
     }
 
+    /**
+     * Updates the notification according to the current state of playback
+     */
     private fun updateNotification(state: PlaybackStateCompat) {
         val updatedState = state.state
 
@@ -129,7 +127,7 @@ class PlaybackManager @Inject constructor(
         if (!disposables.isDisposed) {
             disposables.dispose()
         }
-        mediaController.unregisterCallback(mediaControllerCallback)
+
     }
 
     private fun setPlaybackState(state: Int, position: Long = 0L, extras: Bundle? = null) {
@@ -168,10 +166,12 @@ class PlaybackManager @Inject constructor(
         updateNotification(playbackState)
     }
 
+    /**
+     * Updates the media session metadata
+     */
     private fun setMetaData(metadata: MediaMetadataCompat) {
         mediaSession.setMetadata(metadata)
     }
-
 
     private inner class MediaSessionCallback : MediaSessionCompat.Callback() {
 
@@ -206,7 +206,8 @@ class PlaybackManager @Inject constructor(
                     // Save current playing item state
                     val currentSongId = queueManager.currentItem().description.mediaId?.songId()
                     if (currentSongId != null) {
-                        val nowPlayingItem = NowPlayingItem(currentSongId, status.position.toLong(), status.duration.toLong())
+                        val nowPlayingItem =
+                            NowPlayingItem(currentSongId, status.position.toLong(), status.duration.toLong())
                         queueManager.saveCurrentItem(nowPlayingItem)
                     }
                 }
@@ -220,7 +221,8 @@ class PlaybackManager @Inject constructor(
                     // Save current playing item state
                     val currentSongId = queueManager.currentItem().description.mediaId?.songId()
                     if (currentSongId != null) {
-                        val nowPlayingItem = NowPlayingItem(currentSongId, status.position.toLong(), status.duration.toLong())
+                        val nowPlayingItem =
+                            NowPlayingItem(currentSongId, status.position.toLong(), status.duration.toLong())
                         queueManager.saveCurrentItem(nowPlayingItem)
                     }
 
@@ -257,7 +259,7 @@ class PlaybackManager @Inject constructor(
                 mediaSession.setQueueTitle("Currently Playing")
                 queueManager.currentItem()
             }
-                .subscribe({ item -> queueSubject.accept(PlayRequest(item, null,true)) }, { Timber.w(it) })
+                .subscribe({ item -> queueSubject.accept(PlayRequest(item, null, true)) }, { Timber.w(it) })
                 .let { disposables.add(it) }
 
             playback.playbackStatus()
@@ -372,7 +374,7 @@ class PlaybackManager @Inject constructor(
          */
         fun restorePlaybackState() {
             queueManager.restoreSavedQueue()
-                .subscribe({savedQueue ->
+                .subscribe({ savedQueue ->
                     Timber.i("SavedQueue: %s", savedQueue)
                     mediaSession.setQueue(savedQueue.queueItems)
                     mediaSession.setQueueTitle("Currently Playing")
@@ -382,7 +384,7 @@ class PlaybackManager @Inject constructor(
                     } catch (e: Exception) {
                         Timber.w(e, "Error or no current saved item")
                     }
-                }, { Timber.w(it)})
+                }, { Timber.w(it) })
                 .let { disposables.add(it) }
         }
 
@@ -414,19 +416,6 @@ class PlaybackManager @Inject constructor(
                     }
                 }
             }
-    }
-
-    private inner class MediaControllerCallback :
-        MediaControllerCompat.Callback() {
-
-        override fun onMetadataChanged(metadata: MediaMetadataCompat?) {
-            //mediaController.playbackState?.let { updateNotification(it) }
-        }
-
-        override fun onPlaybackStateChanged(state: PlaybackStateCompat?) {
-            //mediaController.playbackState?.let { updateNotification(it) }
-        }
-
     }
 
     private class BecomingNoisyReceiver(
