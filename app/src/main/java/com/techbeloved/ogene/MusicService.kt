@@ -2,6 +2,7 @@ package com.techbeloved.ogene
 
 import android.app.Notification
 import android.app.PendingIntent
+import android.app.Service
 import android.content.Intent
 import android.os.Bundle
 import android.support.v4.media.MediaBrowserCompat
@@ -141,7 +142,7 @@ class MusicService : MediaBrowserServiceCompat() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         // Called when a media button is clicked
         MediaButtonReceiver.handleIntent(mediaSession, intent)
-        return super.onStartCommand(intent, flags, startId)
+        return Service.START_NOT_STICKY
     }
 
     override fun onDestroy() {

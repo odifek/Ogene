@@ -223,6 +223,11 @@ class PlaybackManager @Inject constructor(
                         val nowPlayingItem = NowPlayingItem(currentSongId, status.position.toLong(), status.duration.toLong())
                         queueManager.saveCurrentItem(nowPlayingItem)
                     }
+
+                    // Should we abandon audio focus? If the pause was delibrate and not transient, then we should abandon audio focus!
+                    if (!shouldPlayOnFocusGain) {
+                        discardAudioFocus()
+                    }
                 }
                 is PlaybackStatus.Ducked -> {
                 }
@@ -234,6 +239,7 @@ class PlaybackManager @Inject constructor(
                 }
                 PlaybackStatus.Stopped -> {
                     setPlaybackState(STATE_STOPPED)
+                    discardAudioFocus()
                 }
             }
         }
@@ -302,7 +308,8 @@ class PlaybackManager @Inject constructor(
             try {
                 queueSubject.accept(PlayRequest(queueManager.skipToNextItem(), null, true))
             } catch (e: EndOfQueueException) {
-                Timber.w(e, "Cannot skip previous!")
+                Timber.w(e, "Cannot skip Next!")
+                discardAudioFocus()
             }
         }
 
@@ -383,21 +390,21 @@ class PlaybackManager @Inject constructor(
             AudioManager.OnAudioFocusChangeListener { focusChange ->
                 when (focusChange) {
                     AudioManager.AUDIOFOCUS_LOSS -> {
-                        playback.pause()
                         shouldPlayOnFocusGain = false
+                        playback.pause()
                     }
                     AudioManager.AUDIOFOCUS_LOSS_TRANSIENT -> {
                         if (playback.isPlaying()) {
-                            playback.pause()
                             shouldPlayOnFocusGain = true // We want to resume later
+                            playback.pause()
                         } else {
                             shouldPlayOnFocusGain = false
                         }
                     }
                     AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
                         if (playback.isPlaying()) {
-                            playback.duck()
                             shouldPlayOnFocusGain = true
+                            playback.duck()
                         }
                     }
                     AudioManager.AUDIOFOCUS_GAIN -> {
