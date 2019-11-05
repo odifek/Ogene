@@ -10,7 +10,9 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelProviders
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.techbeloved.ogene.databinding.ActivityMainBinding
-import com.techbeloved.ogene.musicbrowser.*
+import com.techbeloved.ogene.musicbrowser.MediaListAdapter
+import com.techbeloved.ogene.musicbrowser.MusicBrowserUtils
+import com.techbeloved.ogene.musicbrowser.MusicBrowserViewModel
 import com.vanniktech.rxpermission.Permission
 import com.vanniktech.rxpermission.RealRxPermission
 import io.reactivex.disposables.CompositeDisposable
@@ -26,6 +28,9 @@ class MainActivity : AppCompatActivity() {
 
     @Inject
     lateinit var viewModelFactory: ViewModelProvider.Factory
+
+    @Inject
+    lateinit var musicBrowserUtils: MusicBrowserUtils
 
     private val disposables = CompositeDisposable()
 
@@ -54,10 +59,9 @@ class MainActivity : AppCompatActivity() {
                         layoutManager = LinearLayoutManager(this@MainActivity)
                     }
 
-                    val allSongsCategory = "$CATEGORY_ROOT/$CATEGORY_ALL_SONGS"
                     viewModel.connected.observe(this, Observer { connected ->
                         if (connected) {
-                            viewModel.getItemsInCategory(allSongsCategory).observe(this, Observer { mediaItems ->
+                            viewModel.getItemsInCategory(musicBrowserUtils.allSongsMediaId).observe(this, Observer { mediaItems ->
                                 mediaListAdapter.submitList(mediaItems)
                             })
                         }

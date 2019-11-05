@@ -12,7 +12,7 @@ import android.support.v4.media.session.PlaybackStateCompat
 import androidx.core.content.ContextCompat
 import androidx.media.MediaBrowserServiceCompat
 import androidx.media.session.MediaButtonReceiver
-import com.techbeloved.ogene.musicbrowser.CATEGORY_ROOT
+import com.techbeloved.ogene.musicbrowser.MusicBrowserUtils
 import com.techbeloved.ogene.playback.NOW_PLAYING_NOTIFICATION
 import com.techbeloved.ogene.playback.PlaybackManager
 import com.techbeloved.ogene.repo.MusicProvider
@@ -38,6 +38,9 @@ class MusicService : MediaBrowserServiceCompat() {
 
     @Inject
     lateinit var playbackManager: PlaybackManager
+
+    @Inject
+    lateinit var musicBrowserUtils: MusicBrowserUtils
 
     private val disposables = CompositeDisposable()
 
@@ -136,7 +139,7 @@ class MusicService : MediaBrowserServiceCompat() {
         clientUid: Int,
         rootHints: Bundle?
     ): BrowserRoot? {
-        return BrowserRoot(CATEGORY_ROOT, null)
+        return BrowserRoot(musicBrowserUtils.rootMediaId, null)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

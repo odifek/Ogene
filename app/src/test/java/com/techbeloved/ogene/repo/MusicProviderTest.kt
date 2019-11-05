@@ -2,6 +2,7 @@ package com.techbeloved.ogene.repo
 
 import android.support.v4.media.MediaBrowserCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import com.techbeloved.ogene.musicbrowser.MusicBrowserUtils
 import com.techbeloved.ogene.repo.models.Song
 import io.reactivex.Observable
 import io.reactivex.observers.TestObserver
@@ -26,13 +27,16 @@ class MusicProviderTest {
     @Mock
     private lateinit var genresRepository: GenresRepository
 
+    @Mock
+    private lateinit var sharedPreferencesRepo: SharedPreferencesRepo
+
 
     @Before
     fun setUp() {
         MockitoAnnotations.initMocks(this)
 
         musicProvider = MusicProvider(
-            songsRepository, albumsRepository, artistsRepository, genresRepository
+            songsRepository, albumsRepository, artistsRepository, genresRepository, sharedPreferencesRepo, MusicBrowserUtils()
         )
     }
 

@@ -2,7 +2,9 @@ package com.techbeloved.ogene.repo
 
 import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaDescriptionCompat
-import com.techbeloved.ogene.musicbrowser.*
+import androidx.core.net.toUri
+import com.techbeloved.ogene.musicbrowser.MediaType
+import com.techbeloved.ogene.musicbrowser.MusicBrowserUtils
 import com.techbeloved.ogene.repo.extensions.mediaItems
 import com.techbeloved.ogene.repo.models.NowPlayingItem
 import io.reactivex.Single
@@ -15,93 +17,56 @@ class MusicProvider @Inject constructor(
     private val albumsRepository: AlbumsRepository,
     private val artistsRepository: ArtistsRepository,
     private val genresRepository: GenresRepository,
-    private val sharedPreferencesRepo: SharedPreferencesRepo
+    private val sharedPreferencesRepo: SharedPreferencesRepo,
+    private val musicBrowserUtils: MusicBrowserUtils
 ) {
     fun getMediaItemsForMediaId(
         parentId: String,
         offset: Int = 0,
         limit: Int = -1
     ): Single<List<MediaBrowserCompat.MediaItem>> {
-        if (!parentId.isValidCategoryUri() && !parentId.isValidSubCategoryUri()
-            && !parentId.isValidTopLevelCategory() && !parentId.isValidRootUri()
-            && !parentId.isValidSongUri() && !parentId.isValidSubCategoryListing()
-        ) {
-            return Single.error(Throwable("Invalid id supplied: $parentId"))
-        }
 
-        return when {
+        return when (val mediaType = musicBrowserUtils.mediaType(parentId.toUri())) {
 
-            parentId.isValidRootUri() -> {
-                return Single.just(rootMediaItems())
-            }
+            MediaType.Unknown -> Single.error(IllegalStateException("Unrecognized media id: $parentId"))
+            is MediaType.Browsable.Root -> Single.just(rootMediaItems())
 
-            parentId.isValidTopLevelCategory() -> {
-                when (parentId.category()) {
-                    CATEGORY_ALBUMS -> albumsRepository.getAlbums(offset, limit).firstOrError()
-                        .map { it.mediaItems(parentId) }
-                    CATEGORY_ARTISTS -> artistsRepository.getAllArtists(
-                        offset,
-                        limit
-                    ).firstOrError()
-                        .map { it.mediaItems(parentId) }
-                    CATEGORY_GENRES -> genresRepository.getAllGenres(offset, limit).firstOrError()
-                        .map { it.mediaItems(parentId) }
-                    // TODO: add other top level categories like playlist, etc
-                    CATEGORY_ALL_SONGS -> songsRepository.getAllSongs(offset, limit).firstOrError()
-                        .map { it.mediaItems("$parentId/0") }
-                    else -> Single.error(Throwable("Category unrecognized or not yet implemented! ${parentId.category()}"))
-                }
-            }
-            parentId.isValidCategoryUri() -> {
-                val category = parentId.category()
-                val categoryId = parentId.categoryId() ?: 0
-                when (category) {
-                    CATEGORY_ALBUMS -> songsRepository.getSongsForAlbum(
-                        categoryId,
-                        offset,
-                        limit
-                    ).firstOrError()
-                        .map { it.mediaItems(parentId) }
-                    CATEGORY_ALL_SONGS -> songsRepository.getAllSongs(offset, limit).firstOrError()
-                        .map { it.mediaItems(parentId) }
-                    CATEGORY_ARTISTS -> songsRepository.getSongsForArtist(categoryId, offset, limit)
-                        .map { it.mediaItems(parentId) }
-                        .flatMap { songItems ->
-                            albumsRepository.getAlbumsForArtist(categoryId)
-                                .map { albums -> songItems.plus(albums.mediaItems("$parentId/$CATEGORY_ALBUMS")) }
-                        }.firstOrError()
-                    CATEGORY_GENRES -> songsRepository.getSongsForGenre(
-                        categoryId,
-                        offset,
-                        limit
-                    ).firstOrError()
-                        .map { it.mediaItems(parentId) }
-                    else -> Single.error(Throwable("invalid or not implemented category: $category"))
-                }
-            }
-            parentId.isValidSubCategoryUri() -> {
-                val category = parentId.category()
-                val categoryId = parentId.categoryId()
-                val subCategory = parentId.subCategory()
-                val subCategoryId = parentId.subCategoryId() ?: 0
-                when (category) {
-                    CATEGORY_ARTISTS -> {
-                        when (subCategory) {
-                            CATEGORY_ALBUMS -> songsRepository.getSongsForAlbum(
-                                subCategoryId,
-                                offset,
-                                limit
-                            )
-                                .firstOrError()
-                                .map { it.mediaItems(parentId) }
-                            else -> Single.error(Throwable("Category invalid or not implemented"))
-                        }
-                    }
-                    else -> Single.error(Throwable("Category invalid or not implemented! $category"))
-
-                }
-            }
-            else -> return Single.error(Throwable("Category invalid or not implemented! $parentId"))
+            is MediaType.Playable.SongInAlbum -> TODO()
+            is MediaType.Playable.SongByArtist -> TODO()
+            is MediaType.Playable.SongInAlbumByArtist -> TODO()
+            is MediaType.Playable.SongInGenre -> TODO()
+            is MediaType.Playable.SongInPlaylist -> TODO()
+            is MediaType.Playable.SongInAllSongs -> TODO()
+            MediaType.Browsable.Albums -> albumsRepository.getAlbums(offset, limit).firstOrError()
+                .map { it.mediaItems(parentId) }
+            is MediaType.Browsable.AlbumDetails ->
+                songsRepository.getSongsForAlbum(mediaType.id, offset, limit).firstOrError()
+                    .map { it.mediaItems(parentId) }
+            is MediaType.Browsable.Artists ->
+                artistsRepository.getAllArtists(offset, limit).firstOrError()
+                    .map { it.mediaItems(parentId) }
+            is MediaType.Browsable.ArtistDetails ->
+                songsRepository.getSongsForArtist(mediaType.id, offset, limit)
+                    .map { it.mediaItems(parentId) }
+                    .flatMap { songItems ->
+                        albumsRepository.getAlbumsForArtist(mediaType.id)
+                            .map { albums -> songItems.plus(albums.mediaItems("$parentId/albums")) } // TODO: This is probably not correct
+                    }.firstOrError()
+            is MediaType.Browsable.AlbumByArtist ->
+                songsRepository.getSongsForAlbum(mediaType.albumId, offset, limit)
+                    .firstOrError()
+                    .map { it.mediaItems(parentId) }
+            is MediaType.Browsable.Genres ->
+                genresRepository.getAllGenres(offset, limit).firstOrError()
+                    .map { it.mediaItems(parentId) }
+            is MediaType.Browsable.GenreDetails ->
+                songsRepository.getSongsForGenre(mediaType.id, offset, limit).firstOrError()
+                    .map { it.mediaItems(parentId) }
+            is MediaType.Browsable.Playlists -> TODO()
+            is MediaType.Browsable.PlaylistDetails -> TODO()
+            is MediaType.Browsable.AllSongs ->
+                songsRepository.getAllSongs(offset, limit).firstOrError()
+                    .map { it.mediaItems(parentId) }
         }
 
     }
@@ -114,31 +79,31 @@ class MusicProvider @Inject constructor(
         val builder = MediaDescriptionCompat.Builder()
         return listOf(
             MediaBrowserCompat.MediaItem(
-                builder.setMediaId("$CATEGORY_ROOT/$CATEGORY_ALL_SONGS")
+                builder.setMediaId(musicBrowserUtils.allSongsMediaId)
                     .setTitle("All Songs")
                     .build(),
                 MediaBrowserCompat.MediaItem.FLAG_BROWSABLE
             ),
             MediaBrowserCompat.MediaItem(
-                builder.setMediaId("$CATEGORY_ROOT/$CATEGORY_ALBUMS")
+                builder.setMediaId(musicBrowserUtils.albumsMediaId)
                     .setTitle("Albums")
                     .build(),
                 MediaBrowserCompat.MediaItem.FLAG_BROWSABLE
             ),
             MediaBrowserCompat.MediaItem(
-                builder.setMediaId("$CATEGORY_ROOT/$CATEGORY_ARTISTS")
+                builder.setMediaId(musicBrowserUtils.artistsMediaId)
                     .setTitle("Artists")
                     .build(),
                 MediaBrowserCompat.MediaItem.FLAG_BROWSABLE
             ),
             MediaBrowserCompat.MediaItem(
-                builder.setMediaId("$CATEGORY_ROOT/$CATEGORY_PLAYLISTS")
+                builder.setMediaId(musicBrowserUtils.playlistsMediaId)
                     .setTitle("Playlists")
                     .build(),
                 MediaBrowserCompat.MediaItem.FLAG_BROWSABLE
             ),
             MediaBrowserCompat.MediaItem(
-                builder.setMediaId("$CATEGORY_ROOT/$CATEGORY_GENRES")
+                builder.setMediaId(musicBrowserUtils.genresMediaId)
                     .setTitle("Genres")
                     .build(),
                 MediaBrowserCompat.MediaItem.FLAG_BROWSABLE
@@ -153,7 +118,7 @@ class MusicProvider @Inject constructor(
         return sharedPreferencesRepo.getSavedQueueItems()
             .flatMapObservable { savedIds ->
                 songsRepository.getSongsForIds(savedIds)
-            }.map { it.mediaItems(buildCategoryUri(CATEGORY_ALL_SONGS, 0)) }
+            }.map { it.mediaItems(musicBrowserUtils.allSongsMediaId) }
             .firstOrError()
     }
 

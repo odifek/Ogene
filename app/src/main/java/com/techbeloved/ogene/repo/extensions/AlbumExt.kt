@@ -3,13 +3,12 @@ package com.techbeloved.ogene.repo.extensions
 import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaDescriptionCompat
 import androidx.core.net.toUri
-import com.techbeloved.ogene.musicbrowser.appendItemId
 import com.techbeloved.ogene.repo.models.Album
 
 fun Album.mediaItem(parentId: String): MediaBrowserCompat.MediaItem {
     return MediaBrowserCompat.MediaItem(
         MediaDescriptionCompat.Builder().apply {
-            setMediaId(parentId.appendItemId(this@mediaItem.id))
+            setMediaId("$parentId/${this@mediaItem.id}")
             setTitle(this@mediaItem.title)
             setIconUri(this@mediaItem.albumArtUri?.toUri())
             setSubtitle(this@mediaItem.albumArtist)
@@ -27,7 +26,7 @@ fun List<Album>.mediaItems(parentId: String): List<MediaBrowserCompat.MediaItem>
     return this.map { album ->
         MediaBrowserCompat.MediaItem(
             builder.apply {
-                setMediaId(parentId.appendItemId(album.id))
+                setMediaId("$parentId/${album.id}")
                 setTitle(album.title)
                 setIconUri(album.albumArtUri?.toUri())
                 setSubtitle(album.albumArtist)

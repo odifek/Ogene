@@ -3,9 +3,8 @@ package com.techbeloved.ogene.playback
 import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.session.MediaSessionCompat
 import android.support.v4.media.session.PlaybackStateCompat
-import com.techbeloved.ogene.musicbrowser.isValidSongUri
-import com.techbeloved.ogene.musicbrowser.parentCategoryUri
-import com.techbeloved.ogene.musicbrowser.songId
+import com.techbeloved.ogene.musicbrowser.songItemId
+import com.techbeloved.ogene.musicbrowser.songParentMediaId
 import com.techbeloved.ogene.repo.MusicProvider
 import com.techbeloved.ogene.repo.models.NowPlayingItem
 import io.reactivex.Maybe
@@ -33,20 +32,14 @@ class QueueManagerImp @Inject constructor(private val musicProvider: MusicProvid
                     "Queue Manager is not ready to handle this request"
                 )
             )
-        } else if (!mediaId.isValidSongUri()) {
-            return Observable.error(
-                InvalidMediaIdException(
-                    "Supplied media id, $mediaId, is invalid or not recognized!"
-                )
-            )
         } else {
-            currentBrowsingMediaId = mediaId.parentCategoryUri()
+            currentBrowsingMediaId = mediaId.songParentMediaId()
             if (currentBrowsingMediaId == null) {
                 return Observable.error(InvalidMediaIdException(
                     "Supplied media id, $mediaId, is invalid or not recognized!"
                 ))
             }
-            currentSongId = mediaId.songId()
+            currentSongId = mediaId.songItemId()
             return musicProvider.getMediaItemsForMediaId(currentBrowsingMediaId!!)
                 .map { mediaItems ->
 
@@ -71,7 +64,7 @@ class QueueManagerImp @Inject constructor(private val musicProvider: MusicProvid
 
                     // Save the queue
                     musicProvider.saveQueueItems(
-                        currentList.map { item -> item.description.mediaId?.songId()!!.toString() }
+                        currentList.map { item -> item.description.mediaId?.songItemId()!!.toString() }
 
                     )
 
@@ -139,7 +132,7 @@ class QueueManagerImp @Inject constructor(private val musicProvider: MusicProvid
 
                         if (savedQueue.currentItem.id > 0 && currentList.isNotEmpty()) {
                             currentItemPosition =
-                                currentList.indexOfFirst { item -> item.description.mediaId?.songId() == savedQueue.currentItem.id }
+                                currentList.indexOfFirst { item -> item.description.mediaId?.songItemId() == savedQueue.currentItem.id }
                                     .toLong()
                         }
 

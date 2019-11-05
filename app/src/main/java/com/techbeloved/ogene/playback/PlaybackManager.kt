@@ -19,7 +19,7 @@ import android.support.v4.media.session.PlaybackStateCompat.*
 import androidx.core.app.NotificationManagerCompat
 import com.jakewharton.rxrelay2.PublishRelay
 import com.techbeloved.ogene.MusicService
-import com.techbeloved.ogene.musicbrowser.songId
+import com.techbeloved.ogene.musicbrowser.songItemId
 import com.techbeloved.ogene.repo.models.NowPlayingItem
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.functions.Consumer
@@ -204,7 +204,7 @@ class PlaybackManager @Inject constructor(
                     setPlaybackState(STATE_PLAYING, status.position.toLong(), extras = extras)
 
                     // Save current playing item state
-                    val currentSongId = queueManager.currentItem().description.mediaId?.songId()
+                    val currentSongId = queueManager.currentItem().description.mediaId?.songItemId()
                     if (currentSongId != null) {
                         val nowPlayingItem =
                             NowPlayingItem(currentSongId, status.position.toLong(), status.duration.toLong())
@@ -219,7 +219,7 @@ class PlaybackManager @Inject constructor(
                     setPlaybackState(STATE_PAUSED, status.position.toLong(), extras)
 
                     // Save current playing item state
-                    val currentSongId = queueManager.currentItem().description.mediaId?.songId()
+                    val currentSongId = queueManager.currentItem().description.mediaId?.songItemId()
                     if (currentSongId != null) {
                         val nowPlayingItem =
                             NowPlayingItem(currentSongId, status.position.toLong(), status.duration.toLong())

@@ -4,7 +4,6 @@ import android.os.Bundle
 import android.support.v4.media.MediaBrowserCompat
 import android.support.v4.media.MediaDescriptionCompat
 import android.support.v4.media.MediaMetadataCompat
-import com.techbeloved.ogene.musicbrowser.appendSongId
 import com.techbeloved.ogene.repo.models.Song
 
 /**
@@ -32,7 +31,7 @@ val Song.metadata: MediaMetadataCompat
 fun Song.mediaItem(parentId: String): MediaBrowserCompat.MediaItem {
     return MediaBrowserCompat.MediaItem(
         MediaDescriptionCompat.Builder().apply {
-            setMediaId(parentId.appendSongId(this@mediaItem.id))
+            setMediaId("$parentId/songs/${this@mediaItem.id}")
             setMediaUri(this@mediaItem.contentUri)
             setTitle(this@mediaItem.title)
             setSubtitle(this@mediaItem.album)
@@ -52,7 +51,7 @@ fun List<Song>.mediaItems(parentId: String): List<MediaBrowserCompat.MediaItem> 
     return this.map { song ->
         MediaBrowserCompat.MediaItem(
             builder.apply {
-                setMediaId(parentId.appendSongId(song.id))
+                setMediaId("$parentId/songs/${song.id}")
                 setMediaUri(song.contentUri)
                 setTitle(song.title)
                 setSubtitle(song.album)
